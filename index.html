@@ -1,0 +1,2955 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>الساحة الفارغة</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@500;700&family=Tajawal:wght@400;500;700&display=swap">
+<style>
+/* Layout: full-bleed 3D canvas. HUD: vitals and map button at the start edge, day and pause at the end edge, tutorial banner at the bottom, touch buttons in the bottom corners. Single look by choice (a daylight world seen through a dark HUD). */
+:root {
+  --bg: #cfe2ee;
+  --panel: #131a14;
+  --line: #34412f;
+  --fg: #f1f4e8;
+  --muted: #a9b5a0;
+  --accent: #ffb347;
+  --accent-ink: #1a1204;
+  --font-display: "Reem Kufi", "Segoe UI", Tahoma, sans-serif;
+  --font-body: "Tajawal", "Segoe UI", Tahoma, sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 16px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; background: var(--bg); }
+#ui { position: fixed; inset: 0; pointer-events: none; }
+#ui > * { pointer-events: none; }
+
+.hud-top {
+  position: absolute;
+  top: env(safe-area-inset-top, 0px);
+  left: 0; right: 0; z-index: 3;
+  padding: 14px max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px));
+  display: flex; gap: 12px; justify-content: space-between; align-items: flex-start;
+  flex-wrap: wrap;
+}
+.grp { display: flex; gap: 8px; align-items: flex-start; min-width: 0; }
+.chip {
+  background: rgba(14, 20, 14, 0.7);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 14px;
+  display: flex; flex-direction: column; gap: 2px;
+  min-width: 0;
+}
+.chip small { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; }
+.chip b { font-family: var(--font-display); font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.coords { direction: ltr; text-align: left; font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); }
+.subline { display: flex; gap: 10px; align-items: baseline; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+#season { color: var(--accent); font-weight: 700; }
+
+.bars {
+  width: 190px; box-sizing: border-box; padding: 8px 10px;
+  display: flex; flex-direction: column; gap: 7px;
+  background: rgba(14, 20, 14, 0.7); border: 1px solid var(--line); border-radius: 6px;
+}
+.bar { display: grid; grid-template-columns: 44px 1fr; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.bar i { position: relative; display: block; height: 10px; border-radius: 3px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.bar b { position: absolute; inset: 0; border-radius: 3px; transform-origin: right center; transform: scaleX(var(--v, 1)); }
+.bar .hp { background: #d9534f; }
+.bar .mp { background: #4a8bf0; }
+.bar .fd { background: #e3a23c; }
+
+.hbtn {
+  pointer-events: auto !important;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-width: 54px; min-height: 54px; padding: 6px 8px; box-sizing: border-box;
+  background: rgba(14, 20, 14, 0.7); border: 1px solid var(--line); border-radius: 6px;
+  color: var(--fg); font: 500 12px var(--font-body); cursor: pointer;
+}
+.hbtn.sq { min-width: 44px; min-height: 44px; padding: 6px; }
+.hbtn:hover { border-color: var(--accent); }
+.hbtn:focus-visible, .x:focus-visible, .abtn:focus-visible, #tut-skip:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
+.kb { font: 700 11px/1 var(--font-body); color: var(--accent); direction: ltr; }
+body.touch .kb { display: none; }
+
+#rotate {
+  position: fixed; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 18px;
+  padding: 24px; text-align: center; background: rgba(8, 12, 8, 0.94); color: var(--fg);
+  font-family: var(--font-display); font-size: 22px; line-height: 1.6; pointer-events: auto !important; z-index: 5;
+}
+#rotate.show { display: flex; }
+#rotate .phone { width: 64px; height: 108px; border: 4px solid var(--accent); border-radius: 12px; animation: turn 2.4s ease-in-out infinite; }
+@keyframes turn { 0%, 25% { transform: rotate(0deg); } 65%, 100% { transform: rotate(-90deg); } }
+@media (prefers-reduced-motion: reduce) { #rotate .phone { animation: none; } }
+
+#cross { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; transform: translate(-50%, -50%); filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.85)); }
+#cross::before, #cross::after { content: ""; position: absolute; background: rgba(255, 255, 255, 0.95); }
+#cross::before { left: 10px; top: 0; width: 2px; height: 22px; clip-path: polygon(0 0, 100% 0, 100% 36%, 0 36%, 0 64%, 100% 64%, 100% 100%, 0 100%); }
+#cross::after { top: 10px; left: 0; height: 2px; width: 22px; clip-path: polygon(0 0, 36% 0, 36% 100%, 0 100%, 0 0, 64% 0, 64% 100%, 100% 100%, 100% 0); }
+
+/* hold-to-charge ring around the crosshair */
+#charge {
+  position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; transform: translate(-50%, -50%); border-radius: 50%;
+  background: conic-gradient(var(--accent) calc(var(--p, 0) * 360deg), rgba(255, 255, 255, 0.2) 0);
+  -webkit-mask: radial-gradient(circle, transparent 23px, #000 24px);
+  mask: radial-gradient(circle, transparent 23px, #000 24px);
+}
+#charge.full { background: #fff; animation: pulse 0.45s ease-in-out infinite alternate; }
+@keyframes pulse { from { opacity: 0.55; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { #charge.full { animation: none; } }
+
+#toast {
+  position: absolute; left: 50%; top: 22%; transform: translateX(-50%);
+  font-family: var(--font-display); font-size: 24px; color: #fff;
+  opacity: 0; transition: opacity 0.25s;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
+  white-space: nowrap;
+}
+#toast.on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+
+/* tutorial banner */
+#tut {
+  position: absolute; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 2;
+  width: min(520px, calc(100% - 32px)); box-sizing: border-box; padding: 10px 14px 12px;
+  background: rgba(14, 20, 14, 0.84); border: 1px solid var(--line); border-radius: 8px;
+}
+body.touch #tut { left: 12px; transform: none; width: min(520px, calc(100% - 280px)); }
+.tut-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
+#tut-skip {
+  pointer-events: auto !important; display: flex; gap: 6px; align-items: center;
+  background: transparent; border: 1px solid var(--line); border-radius: 5px; color: var(--muted);
+  font: 500 12px var(--font-body); padding: 3px 8px; cursor: pointer;
+}
+#tut-skip:hover { color: var(--fg); border-color: var(--accent); }
+#tut-title { display: block; font-family: var(--font-display); font-size: 20px; margin-top: 2px; }
+#tut-text { margin: 2px 0 8px; color: var(--fg); font-size: 14px; line-height: 1.6; }
+.tut-prog { display: flex; gap: 3px; }
+.tut-prog i { flex: 1; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.16); }
+.tut-prog i.done { background: var(--accent); }
+.tut-prog i.cur { background: #fff; }
+
+/* start and pause card */
+#card-wrap {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(8, 12, 8, 0.6);
+  padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px));
+  box-sizing: border-box;
+  pointer-events: auto !important;
+}
+#card-wrap[hidden] { display: none; }
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 28px 28px 24px;
+  width: 100%; max-width: 460px; box-sizing: border-box;
+  max-height: 100%; overflow-y: auto;
+}
+.card h1 { font-family: var(--font-display); font-size: clamp(32px, 8vw, 44px); margin: 0 0 8px; text-wrap: balance; line-height: 1.15; }
+.card p { margin: 0 0 16px; color: var(--muted); line-height: 1.7; }
+.keys { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0 0 20px; padding: 14px 0; border-block: 1px solid var(--line); font-size: 15px; }
+.keys dt { color: var(--fg); font-weight: 700; unicode-bidi: plaintext; text-align: right; font-variant-numeric: tabular-nums; }
+.keys dd { margin: 0; color: var(--muted); }
+button.go {
+  font: 700 18px var(--font-display);
+  background: var(--accent); color: var(--accent-ink);
+  border: 0; border-radius: 6px; padding: 12px 28px; cursor: pointer; width: 100%;
+}
+button.go:hover { filter: brightness(1.08); }
+button.go:focus-visible { outline: 3px solid var(--fg); outline-offset: 3px; }
+.note { margin: 12px 0 0 !important; font-size: 13px; }
+
+/* book and map sheets */
+.sheet-wrap {
+  position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center;
+  background: rgba(8, 12, 8, 0.72); box-sizing: border-box;
+  padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px));
+}
+.sheet {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-sizing: border-box;
+  padding: 18px 20px; width: 100%; max-width: 520px; max-height: 100%; overflow: auto;
+}
+.sheet.wide { max-width: 720px; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.sheet h2 { font-family: var(--font-display); font-size: 28px; margin: 0; }
+.sheet .sub { margin: 0 0 8px; color: var(--muted); }
+.sheet .keys { margin-bottom: 0; }
+.x {
+  width: 40px; height: 40px; display: grid; place-items: center; flex: none;
+  background: transparent; color: var(--fg); border: 1px solid var(--line); border-radius: 6px; cursor: pointer;
+}
+.x:hover { border-color: var(--accent); }
+.map-body { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+#map-canvas { width: min(60vh, 78vw, 420px); aspect-ratio: 1; height: auto; border: 1px solid var(--line); border-radius: 6px; background: #000; flex: none; }
+.legend { display: flex; flex-direction: column; gap: 8px; font-size: 15px; min-width: 0; }
+.legend i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; margin-inline-end: 8px; vertical-align: -2px; border: 1px solid rgba(255, 255, 255, 0.25); }
+
+/* bag and book */
+.tabs { display: flex; gap: 6px; margin: 0 0 12px; flex-wrap: wrap; }
+.tab {
+  position: relative; font: 700 14px var(--font-body); color: var(--muted); background: transparent;
+  border: 1px solid var(--line); border-radius: 6px; padding: 8px 14px; min-height: 40px; cursor: pointer;
+}
+.tab[aria-selected="true"] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+.tab:focus-visible, .slot:focus-visible, .use:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
+.tab .nw, .abtn .nw { position: absolute; top: -4px; left: -4px; width: 10px; height: 10px; border-radius: 50%; background: #e0523f; border: 2px solid var(--panel); }
+#b-book .nw { top: 0; left: 0; }
+.pages { display: flex; flex-direction: column; gap: 10px; }
+.page { display: grid; grid-template-columns: 124px 1fr; gap: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: rgba(255, 255, 255, 0.03); }
+.page.lock { opacity: 0.8; border-style: dashed; }
+.page .pic { width: 124px; height: 93px; color: var(--fg); background: rgba(0, 0, 0, 0.25); border-radius: 6px; display: grid; place-items: center; }
+.page .pic svg { width: 100%; height: 100%; }
+.page .pic .a { stroke: var(--accent); }
+.page h3 { margin: 0 0 4px; font: 700 18px var(--font-display); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.page p { margin: 0 0 8px; color: var(--muted); line-height: 1.7; font-size: 14px; }
+.badge { font: 700 11px var(--font-body); background: #e0523f; color: #fff; border-radius: 4px; padding: 2px 6px; }
+.mats { display: flex; gap: 6px; flex-wrap: wrap; }
+.mat { font-size: 12px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted); font-variant-numeric: tabular-nums; }
+.mat.ok { color: #9fe29a; border-color: #4f8b4a; }
+.page .keys { margin: 0; padding: 8px 0 0; border: 0; border-top: 1px solid var(--line); font-size: 14px; }
+.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+.slot {
+  position: relative; aspect-ratio: 1.15; min-height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line); border-radius: 8px; color: var(--fg); font: 500 12px var(--font-body); cursor: pointer; padding: 4px;
+}
+.slot.empty { cursor: default; border-style: dashed; opacity: 0.5; }
+.slot[aria-pressed="true"] { border-color: var(--accent); background: rgba(255, 179, 71, 0.14); }
+.slot svg { width: 34px; height: 34px; }
+.slot .n { position: absolute; bottom: 4px; left: 6px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.detail { min-height: 70px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); line-height: 1.7; font-size: 14px; }
+.detail b { color: var(--fg); font: 700 17px var(--font-display); display: block; }
+.use:disabled { opacity: 0.45; cursor: default; }
+.craftbox { margin-top: 10px; padding: 10px 12px; border: 1px dashed var(--accent); border-radius: 8px; line-height: 1.7; font-size: 14px; color: var(--muted); }
+.craftbox h3 { margin: 0 0 6px; font: 700 16px var(--font-display); color: var(--fg); }
+.craftbox .crow { display: flex; align-items: center; gap: 8px; padding: 3px 0; color: var(--fg); }
+.craftbox .crow svg { width: 26px; height: 26px; flex: none; }
+.craftbox .crow span { flex: 1; }
+.craftbox .mini { font: 700 15px var(--font-body); min-width: 36px; min-height: 36px; border: 1px solid var(--line); background: transparent; color: var(--fg); border-radius: 6px; cursor: pointer; }
+.craftbox .ctip { color: var(--accent); font-weight: 700; }
+.craftbox .use { margin-inline-end: 8px; }
+.use { margin-top: 8px; font: 700 14px var(--font-body); background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 6px; padding: 9px 16px; min-height: 40px; cursor: pointer; }
+.cap { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+@media (max-width: 520px) { .page { grid-template-columns: 1fr; } .page .pic { width: 100%; height: 90px; } .grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-height: 520px) { .tab { padding: 5px 12px; min-height: 36px; } .slot { min-height: 54px; aspect-ratio: auto; } .page { padding: 8px; gap: 10px; } .page h3 { font-size: 16px; } .page p { font-size: 13px; margin-bottom: 6px; line-height: 1.5; } .grid { grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 8px; } .sheet.wide { max-width: 760px; } }
+
+/* title screen */
+#menu { position: fixed; inset: 0; z-index: 9; overflow-y: auto; display: flex; background: linear-gradient(180deg, rgba(8, 12, 10, 0.5), rgba(8, 12, 10, 0.88)); padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); box-sizing: border-box; }
+#menu[hidden] { display: none; }
+body.inmenu #ui { visibility: hidden; }
+.mbox { width: 100%; max-width: 460px; margin: auto; }
+.logo { font-family: var(--font-display); font-size: clamp(48px, 13vw, 84px); line-height: 1.1; text-align: center; margin: 0; text-shadow: 0 2px 18px rgba(0, 0, 0, 0.6); }
+.tag { text-align: center; color: var(--accent); margin: 4px 0 18px; letter-spacing: 0.04em; direction: ltr; unicode-bidi: plaintext; }
+.mh { font-family: var(--font-display); font-size: 22px; margin: 0 0 10px; }
+.saves { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.save { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.save .open { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: right; padding: 10px 14px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line); border-radius: 8px; color: var(--fg); cursor: pointer; min-height: 56px; font-family: var(--font-body); }
+.save .open b { font: 700 18px var(--font-display); }
+.save .open span { color: var(--muted); font-size: 13px; }
+.save .open:hover, .save .del:hover { border-color: var(--accent); }
+.save .del { background: transparent; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); padding: 0 12px; cursor: pointer; font: 500 13px var(--font-body); min-width: 64px; }
+.save .del.arm { color: #fff; background: #b3382c; border-color: #b3382c; }
+.saves .empty { margin: 0; color: var(--muted); padding: 14px; border: 1px dashed var(--line); border-radius: 8px; text-align: center; }
+.fld { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; color: var(--muted); }
+.fld input { font: 500 20px var(--font-body); color: var(--fg); background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-height: 48px; box-sizing: border-box; width: 100%; }
+.fld input:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+.sug { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+.sugb { font: 700 14px var(--font-body); background: transparent; color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 4px 12px; cursor: pointer; margin-inline-start: 6px; }
+.mrow { display: flex; gap: 10px; flex-direction: row-reverse; }
+.mrow .go { flex: 1; }
+.go.ghost { background: transparent; color: var(--fg); border: 1px solid var(--line); margin-top: 10px; }
+.mrow .go.ghost { margin-top: 0; }
+.go:disabled { opacity: 0.45; cursor: default; }
+#m-warn2 { margin: 0 0 12px !important; }
+#thp { position: absolute; left: 50%; top: calc(50% + 28px); width: 70px; height: 7px; transform: translateX(-50%); background: rgba(0, 0, 0, 0.55); border: 1px solid rgba(255, 255, 255, 0.5); border-radius: 4px; overflow: hidden; }
+#thp[hidden] { display: none; }
+#thp i { display: block; height: 100%; background: #6fcf5a; transform-origin: right center; transition: transform 0.12s; }
+@media (max-height: 520px) { .logo { font-size: 44px; } .tag { margin-bottom: 8px; } .mh { font-size: 18px; margin-bottom: 6px; } .save .open { min-height: 46px; padding: 6px 12px; } .saves { margin-bottom: 8px; gap: 6px; } .sug { margin-bottom: 8px; } }
+
+/* touch controls */
+#touch { position: absolute; inset: 0; display: none; z-index: 1; }
+body.touch #touch { display: block; }
+#stick-zone { position: absolute; left: 0; bottom: 0; width: 40%; height: 55%; pointer-events: auto !important; }
+#look-zone { position: absolute; right: 0; top: 0; width: 55%; height: 100%; pointer-events: auto !important; }
+#stick { position: absolute; width: 110px; height: 110px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.5); background: rgba(0, 0, 0, 0.15); display: none; }
+#knob { position: absolute; left: 35px; top: 35px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255, 179, 71, 0.9); }
+.abtn {
+  position: absolute; z-index: 1; border-radius: 50%; padding: 0;
+  background: rgba(14, 20, 14, 0.55); border: 2px solid var(--accent); color: var(--fg);
+  font: 700 15px var(--font-display); pointer-events: auto !important; touch-action: none;
+}
+.abtn.down { background: rgba(255, 179, 71, 0.55); }
+.abtn.cool { opacity: 0.45; }
+#b-attack { width: 88px; height: 88px; right: max(20px, env(safe-area-inset-right, 0px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); font-size: 18px; background: rgba(255, 179, 71, 0.28); }
+#b-jump { width: 64px; height: 64px; right: calc(max(20px, env(safe-area-inset-right, 0px)) + 100px); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+#b-dash { width: 64px; height: 64px; right: calc(max(20px, env(safe-area-inset-right, 0px)) + 12px); bottom: calc(124px + env(safe-area-inset-bottom, 0px)); }
+#b-book { width: 52px; height: 52px; right: calc(max(20px, env(safe-area-inset-right, 0px)) + 96px); bottom: calc(100px + env(safe-area-inset-bottom, 0px)); font-size: 13px; }
+
+#hotbar { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 6px; z-index: 2; direction: ltr; }
+.hb { width: 48px; height: 48px; padding: 5px; position: relative; background: rgba(14, 20, 14, 0.7); border: 1px solid var(--line); border-radius: 6px; color: var(--fg); pointer-events: auto !important; touch-action: manipulation; cursor: pointer; }
+.hb svg { width: 100%; height: 100%; }
+.hb.empty { opacity: 0.55; border-style: dashed; cursor: default; }
+.hb.sel2 { border-color: #7fd6ff; background: rgba(127, 214, 255, 0.2); box-shadow: 0 0 10px rgba(127, 214, 255, 0.45); }
+.hb.sel.sel2 { border-color: var(--accent); }
+.hb .h2 { position: absolute; top: 1px; right: 4px; font-size: 11px; font-weight: 700; color: #7fd6ff; }
+.hb.sel { border-color: var(--accent); background: rgba(255, 179, 71, 0.22); box-shadow: 0 0 10px rgba(255, 179, 71, 0.45); }
+.hb .k { position: absolute; top: 1px; left: 4px; font-size: 10px; color: var(--muted); }
+.hb .n { position: absolute; bottom: 1px; right: 4px; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+@media (max-height: 520px) { .hb { width: 40px; height: 40px; padding: 3px; } #hotbar { gap: 4px; bottom: calc(6px + env(safe-area-inset-bottom, 0px)); } }
+.hbtn { position: relative; }
+#btn-skills.has::after { content: ''; position: absolute; top: 3px; left: 3px; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+#hurt { position: absolute; inset: 0; pointer-events: none; opacity: 0; z-index: 2; background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 40%, rgba(210, 25, 12, 0.8) 100%); }
+#hurt.burn { background: radial-gradient(ellipse at center, rgba(255, 120, 0, 0.12) 30%, rgba(255, 90, 10, 0.85) 100%); }
+#death { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, rgba(70, 0, 0, 0.78), rgba(10, 0, 0, 0.94)); text-align: center; padding: 24px; box-sizing: border-box; }
+#death[hidden] { display: none; }
+#death h2 { font-family: var(--font-display); font-size: 54px; margin: 0 0 8px; color: #ff6b5f; }
+#death p { margin: 0 0 22px; font-size: 20px; color: var(--fg); }
+.sk-xp { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.12); overflow: hidden; margin: 4px 0 12px; }
+.sk-xp i { display: block; height: 100%; background: var(--accent); width: 0; }
+.sk-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.sk-col h3 { margin: 0 0 8px; font-family: var(--font-display); font-size: 18px; color: var(--accent); text-align: center; }
+.sk { position: relative; border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; background: rgba(255, 255, 255, 0.04); margin-bottom: 14px; }
+.sk::after { content: ''; position: absolute; left: 50%; bottom: -14px; width: 2px; height: 14px; background: var(--line); }
+.sk:last-child::after { display: none; }
+.sk b { display: block; font-size: 15px; margin-bottom: 3px; }
+.sk p { margin: 0 0 6px; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+.sk .c { font-size: 12px; color: var(--accent); }
+.sk.learned { border-color: #4f8b4a; background: rgba(79, 139, 74, 0.16); }
+.sk.learned .c { color: #9fe29a; }
+.sk.locked { opacity: 0.5; }
+.sk .use { margin-top: 2px; min-height: 34px; padding: 6px 12px; }
+@media (max-width: 620px) { .sk-cols { grid-template-columns: 1fr; } }
+.abtn[hidden] { display: none !important; }
+#b-dive { width: 60px; height: 60px; right: calc(max(20px, env(safe-area-inset-right, 0px)) + 12px); bottom: calc(200px + env(safe-area-inset-bottom, 0px)); background: rgba(70, 160, 220, 0.35); }
+@media (max-height: 520px) { #b-dive { width: 52px; height: 52px; bottom: calc(164px + env(safe-area-inset-bottom, 0px)); } }
+#uwtint { position: absolute; inset: 0; pointer-events: none; opacity: 0; z-index: 1; background: radial-gradient(ellipse at center, rgba(20, 110, 160, 0.35), rgba(5, 50, 90, 0.7)); }
+#air { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(68px + env(safe-area-inset-bottom, 0px)); width: 210px; display: grid; grid-template-columns: 44px 1fr; gap: 8px; align-items: center; font-size: 12px; color: #bfe6ff; z-index: 2; }
+#air[hidden] { display: none; }
+#air i { position: relative; display: block; height: 8px; border-radius: 3px; background: rgba(255, 255, 255, 0.15); overflow: hidden; }
+#air b { position: absolute; inset: 0; background: #7fd6ff; transform-origin: right center; }
+@media (max-height: 520px) { #air { bottom: calc(52px + env(safe-area-inset-bottom, 0px)); } }
+.hb-sep { width: 10px; flex: none; }
+.hb.off { border-color: #7fd6ff; border-style: solid; }
+.hb.off.empty { opacity: 0.7; border-style: dashed; cursor: pointer; }
+.hb.off .k { color: #7fd6ff; font-weight: 700; font-size: 12px; }
+#fallback { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 24px; text-align: center; background: var(--panel); line-height: 1.8; }
+
+/* landscape phones: compact HUD */
+@media (max-height: 520px) {
+  .hud-top { padding-top: 8px; gap: 8px; }
+  .chip { padding: 4px 10px; }
+  .chip b { font-size: 18px; }
+  .chip small { font-size: 11px; }
+  .chip.pos { display: none; }
+  .bars { width: 150px; padding: 6px 8px; gap: 4px; }
+  .bar { grid-template-columns: 38px 1fr; font-size: 11px; gap: 6px; }
+  .hbtn { min-width: 44px; min-height: 44px; }
+  .card { padding: 16px 20px; }
+  .card h1 { font-size: 28px; margin-bottom: 4px; }
+  .card p { margin-bottom: 10px; line-height: 1.5; }
+  .keys { gap: 4px 12px; font-size: 13px; padding: 8px 0; margin-bottom: 10px; }
+  .sheet { padding: 12px 16px; }
+  .sheet h2 { font-size: 22px; }
+  #toast { top: 30%; font-size: 20px; }
+  #tut { bottom: calc(10px + env(safe-area-inset-bottom, 0px)); padding: 6px 12px 8px; }
+  #tut-title { font-size: 17px; }
+  #tut-text { font-size: 13px; line-height: 1.5; margin-bottom: 6px; }
+  #b-attack { width: 76px; height: 76px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
+  #b-jump { width: 56px; height: 56px; right: calc(max(20px, env(safe-area-inset-right, 0px)) + 88px); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  #b-dash { width: 56px; height: 56px; right: calc(max(20px, env(safe-area-inset-right, 0px)) + 10px); bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
+  #b-book { width: 46px; height: 46px; right: calc(max(20px, env(safe-area-inset-right, 0px)) + 86px); bottom: calc(82px + env(safe-area-inset-bottom, 0px)); }
+}
+</style>
+
+<canvas id="view" aria-label="عالم اللعبة ثلاثي الأبعاد"></canvas>
+
+<div id="ui" dir="rtl">
+  <div class="hud-top">
+    <div class="grp">
+      <div class="bars">
+        <div class="bar" role="meter" aria-label="القوة" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><span>القوة</span><i><b id="bar-hp" class="hp"></b></i></div>
+        <div class="bar" role="meter" aria-label="المانا" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><span>المانا</span><i><b id="bar-mp" class="mp"></b></i></div>
+        <div class="bar" role="meter" aria-label="الطعام" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><span>الطعام</span><i><b id="bar-fd" class="fd"></b></i></div>
+      </div>
+      <button class="hbtn" id="btn-map" type="button" aria-label="الخريطة">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5L9 4ZM9 4v13.5M15 6.5V20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>
+        <span>الخريطة</span><kbd class="kb">M</kbd>
+      </button>
+      <button class="hbtn" id="btn-bag" type="button" aria-label="الحقيبة">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M8 8c0-3 1.6-4.5 4-4.5S16 5 16 8M5.5 8h13l1 12h-15z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/><path d="M9 13h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span>الحقيبة</span><kbd class="kb">I</kbd>
+      </button>
+      <button class="hbtn" id="btn-skills" type="button" aria-label="المهارات">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="m12 3.5 2.6 5.3 5.9.8-4.3 4.1 1 5.8L12 16.8 6.8 19.5l1-5.8L3.5 9.6l5.9-.8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <span>المهارات</span><kbd class="kb">K</kbd>
+      </button>
+    </div>
+    <div class="grp">
+      <div class="chip"><small>اليوم</small><b id="day">1</b><div class="subline"><span id="season">الربيع</span><span id="clock" dir="ltr">07:12</span></div></div>
+      <div class="chip pos"><small>الموضع</small><div class="coords" id="coords">X 0 · Z 0</div></div>
+      <button class="hbtn sq" id="btn-pause" type="button" aria-label="إيقاف اللعبة">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg>
+        <kbd class="kb">P</kbd>
+      </button>
+    </div>
+  </div>
+  <div id="uwtint"></div>
+  <div id="hurt"></div>
+  <div id="air" hidden><span>الهواء</span><i><b id="air-b"></b></i></div>
+  <div id="cross"></div>
+  <div id="charge" hidden></div>
+  <div id="toast"></div>
+  <div id="thp" hidden><i></i></div>
+  <div id="tut" hidden>
+    <div class="tut-top"><span id="tut-n">الدرس 1 من 9</span><button id="tut-skip" type="button">تخطي الشرح <kbd class="kb">T</kbd></button></div>
+    <b id="tut-title"></b>
+    <p id="tut-text"></p>
+    <div class="tut-prog" id="tut-prog"></div>
+  </div>
+  <div id="touch">
+    <div id="look-zone"></div>
+    <div id="stick-zone"></div>
+    <div id="stick"><div id="knob"></div></div>
+    <button class="abtn" id="b-attack" type="button">ضرب</button>
+    <button class="abtn" id="b-jump" type="button">قفز</button>
+    <button class="abtn" id="b-dash" type="button">داش</button>
+    <button class="abtn" id="b-book" type="button">كتاب</button>
+    <button class="abtn" id="b-dive" type="button" hidden>غوص</button>
+  </div>
+  <div id="hotbar" role="toolbar" aria-label="الشريط السريع"></div>
+</div>
+
+<div id="menu" dir="rtl">
+  <div class="mbox">
+    <h1 class="logo">العشوائيات</h1>
+    <p class="tag">AL-3CHWAIYAT · عالم فانتازيا</p>
+    <section id="m-main">
+      <h2 class="mh">آخر الحفظات</h2>
+      <div id="save-list" class="saves"></div>
+      <button class="go" id="m-new" type="button">حفظ جديد</button>
+      <p class="note" id="m-warn" hidden>لديك ثلاث حفظات. الحفظ الجديد سيحل محل أقدمها.</p>
+      <p class="note" id="m-store" hidden>الحفظ غير متاح في هذا المتصفح، فلن تبقى التقدمات بعد إغلاق الصفحة.</p>
+    </section>
+    <section id="m-name" hidden>
+      <h2 class="mh">اسم الشخصية</h2>
+      <label class="fld"><span>ما اسم شخصيتك؟</span><input id="in-name" type="text" maxlength="16" autocomplete="off" spellcheck="false" value="جابر"></label>
+      <p class="sug">اقتراح: <button type="button" class="sugb" data-fill="in-name" data-v="جابر">جابر</button></p>
+      <p class="note" id="m-warn2" hidden>لديك ثلاث حفظات. الحفظ الجديد سيحل محل أقدمها.</p>
+      <div class="mrow"><button class="go ghost" type="button" data-back="main">رجوع</button><button class="go" id="m-next1" type="button">التالي</button></div>
+    </section>
+    <section id="m-king" hidden>
+      <h2 class="mh">اسم المملكة</h2>
+      <label class="fld"><span>ما اسم مملكتك؟</span><input id="in-king" type="text" maxlength="24" autocomplete="off" spellcheck="false" value="مملكة الفجر"></label>
+      <p class="sug">اقتراح: <button type="button" class="sugb" data-fill="in-king" data-v="مملكة الفجر">مملكة الفجر</button></p>
+      <div class="mrow"><button class="go ghost" type="button" data-back="name">رجوع</button><button class="go" id="m-next2" type="button">التالي</button></div>
+    </section>
+  </div>
+</div>
+
+<div id="card-wrap" dir="rtl" hidden>
+  <div class="card">
+    <h1 id="card-title">ساحة الحصن القديم</h1>
+    <p id="card-text">مرج أخضر يحيط به سور حجري أثري. ابدأ بالشرح داخل الحصن، ثم اخرج من البوابة الشمالية لتستكشف العالم.</p>
+    <dl class="keys" id="keys"></dl>
+    <button class="go" id="go" type="button">ابدأ اللعب</button>
+    <button class="go ghost" id="to-menu" type="button" hidden>القائمة الرئيسية</button>
+    <p class="note" id="note">تبدأ اللعبة بملء الشاشة وبوضع أفقي. إذا لم يعمل قفل المؤشر في هذه الصفحة، اسحب بالفأرة للنظر.</p>
+  </div>
+</div>
+
+<div class="sheet-wrap" id="sheet-book" hidden dir="rtl">
+  <div class="sheet wide" role="dialog" aria-label="الكتاب">
+    <div class="sheet-head"><h2>الكتاب</h2><button class="x" type="button" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg></button></div>
+    <p class="cap" id="book-count"></p>
+    <div class="tabs" id="book-tabs" role="tablist"></div>
+    <div class="pages" id="book-pages"></div>
+  </div>
+</div>
+
+<div class="sheet-wrap" id="sheet-bag" hidden dir="rtl">
+  <div class="sheet wide" role="dialog" aria-label="الحقيبة">
+    <div class="sheet-head"><h2>الحقيبة</h2><button class="x" type="button" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg></button></div>
+    <p class="cap" id="bag-count"></p>
+    <div class="grid" id="bag-grid"></div>
+    <div class="detail" id="bag-detail"></div>
+    <div class="craftbox" id="craftbox"></div>
+  </div>
+</div>
+
+<div class="sheet-wrap" id="sheet-map" hidden dir="rtl">
+  <div class="sheet wide" role="dialog" aria-label="الخريطة">
+    <div class="sheet-head"><h2>الخريطة</h2><button class="x" type="button" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg></button></div>
+    <div class="map-body">
+      <canvas id="map-canvas" width="288" height="288" aria-label="خريطة العالم"></canvas>
+      <div class="legend">
+        <span><i style="background: rgb(92,156,66)"></i>المرج العادي</span>
+        <span><i style="background: rgb(52,46,60)"></i>البيئة المظلمة</span>
+        <span><i style="background: rgb(214,184,92)"></i>السافانا</span>
+        <span><i style="background: rgb(96,56,48)"></i>المنطقة البركانية</span>
+        <span><i style="background: #ff6a1a"></i>الحمم</span>
+        <span><i style="background: rgb(50,130,190)"></i>البحر</span>
+        <span><i style="background: rgb(214,196,140)"></i>الشاطئ</span>
+        <span><i style="background: #8a8478"></i>الحصن القديم</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="sheet-wrap" id="sheet-skills" hidden dir="rtl">
+  <div class="sheet wide" role="dialog" aria-label="المهارات">
+    <div class="sheet-head"><h2>شجرة المهارات</h2><button class="x" type="button" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg></button></div>
+    <p class="cap" id="sk-info"></p>
+    <div class="sk-xp"><i id="sk-xp"></i></div>
+    <div class="sk-cols" id="sk-tree"></div>
+  </div>
+</div>
+
+<div id="death" hidden dir="rtl"><div><h2>مِتَّ</h2><p id="death-why"></p><button class="go" id="respawn" type="button">العودة للحياة</button></div></div>
+
+<div id="rotate" dir="rtl"><div class="phone"></div><div>أدر جهازك إلى الوضع الأفقي لمتابعة اللعب</div></div>
+<div id="fallback" dir="rtl">تعذّر تشغيل الرسوميات ثلاثية الأبعاد (WebGL) في هذا المتصفح. جرّب متصفحًا آخر أو فعّل تسريع الرسوميات.</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  var realRandom = Math.random, rs0 = 0x2f6e2b1;
+  Math.random = function () { rs0 = (rs0 + 0x6D2B79F5) | 0; var t = Math.imul(rs0 ^ (rs0 >>> 15), 1 | rs0); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  var BOUND = 40, EYE = 1.7, RADIUS = 0.45, WALL_H = 12, WALL_T = 3, GATE = 3.2;
+  var HORIZON = 0xd6e8f3;
+  var canvas = document.getElementById('view');
+  var renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+  } catch (e) {
+    document.getElementById('fallback').style.display = 'flex';
+    return;
+  }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+  var scene = new THREE.Scene();
+  scene.background = new THREE.Color(HORIZON);
+  scene.fog = new THREE.Fog(HORIZON, 45, 150);
+  var camera = new THREE.PerspectiveCamera(75, 1, 0.1, 400);
+  camera.rotation.order = 'YXZ';
+
+  // ---------- first-person hands (rectangular blocks attached to the camera) ----------
+  scene.add(camera);
+  var skinMat = new THREE.MeshStandardMaterial({ color: 0xd9a47a, roughness: 0.9 });
+  var hands = [-1, 1].map(function (side) {
+    var g = new THREE.Group();
+    var arm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.46), skinMat); arm.position.z = 0.12;
+    var fist = new THREE.Mesh(new THREE.BoxGeometry(0.125, 0.09, 0.15), skinMat); fist.position.z = -0.17;
+    g.add(arm); g.add(fist);
+    g.userData = { side: side, bx: side * 0.27, by: -0.3, bz: -0.5 };
+    g.position.set(g.userData.bx, g.userData.by, g.userData.bz);
+    g.rotation.set(0.05, -side * 0.12, 0);
+    camera.add(g);
+    return g;
+  });
+  var torchLight = new THREE.PointLight(0xffa040, 0, 22, 2); torchLight.position.set(0.2, -0.05, -0.6); camera.add(torchLight);
+  var handPhase = 0, torchK = 0, eatAnim = 0, torchFlare = 0;
+  var bk = { opening: false, t: 0, p: 0, o: 0 }, bookCover = null, bookCov = null, bookGold = null, bookAura = null, bookCircle = null, bookSpark = null, sparkAge = [];
+  var bookG = new THREE.Group();
+  (function () {
+    var cov = bookCov = new THREE.MeshStandardMaterial({ color: 0x4a2a6a, roughness: 0.6, emissive: 0x000000 }), pg = new THREE.MeshStandardMaterial({ color: 0xefe2bd, roughness: 1 }), gold = bookGold = new THREE.MeshStandardMaterial({ color: 0xd9a441, roughness: 0.4, metalness: 0.4, emissive: 0x000000 });
+    var back = new THREE.Mesh(new THREE.BoxGeometry(0.23, 0.3, 0.012), cov); back.position.z = -0.024;
+    var pages = new THREE.Mesh(new THREE.BoxGeometry(0.205, 0.275, 0.04), pg);
+    var front = new THREE.Mesh(new THREE.BoxGeometry(0.23, 0.3, 0.012), cov); front.position.x = -0.1115;
+    bookCover = new THREE.Group(); bookCover.position.set(0.1115, 0, 0.024); bookCover.add(front);
+    var ink = new THREE.MeshBasicMaterial({ color: 0x5a4a2a });
+    for (var li = 0; li < 7; li++) { var ln = new THREE.Mesh(new THREE.BoxGeometry(0.15 - (li % 3) * 0.03, 0.008, 0.002), ink); ln.position.set(-0.005, 0.1 - li * 0.03, 0.0215); bookG.add(ln); }
+    var spine = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.3, 0.062), cov); spine.position.x = 0.1115;
+    var mark = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.004), gold); mark.position.set(-0.1115, 0, 0.008); bookCover.add(mark);
+    bookG.add(back); bookG.add(pages); bookG.add(bookCover); bookG.add(spine);
+    function tex(draw) { var c = document.createElement('canvas'); c.width = c.height = 256; var g = c.getContext('2d'); draw(g); return new THREE.CanvasTexture(c); }
+    var addM = function (t, o) { return new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide, color: 0xffffff }); };
+    var auraT = tex(function (g) { var gr = g.createRadialGradient(128, 128, 4, 128, 128, 126); gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.4, 'rgba(255,255,255,0.3)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 256, 256); });
+    bookAura = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.8), addM(auraT)); bookAura.position.z = -0.03; bookG.add(bookAura);
+    var circT = tex(function (g) {
+      g.translate(128, 128); g.strokeStyle = '#fff'; g.fillStyle = '#fff'; g.lineWidth = 3;
+      [122, 112, 74].forEach(function (r) { g.beginPath(); g.arc(0, 0, r, 0, 6.2832); g.stroke(); });
+      g.lineWidth = 2;
+      for (var k = 0; k < 24; k++) { var a = k * 6.2832 / 24; g.beginPath(); g.moveTo(Math.cos(a) * 112, Math.sin(a) * 112); g.lineTo(Math.cos(a) * 122, Math.sin(a) * 122); g.stroke(); }
+      for (var q = 0; q < 12; q++) { var b = q * 6.2832 / 12, x = Math.cos(b) * 93, y = Math.sin(b) * 93; g.save(); g.translate(x, y); g.rotate(b + 1.5708); g.beginPath(); g.moveTo(-5, 7); g.lineTo(0, -8); g.lineTo(5, 7); if (q % 3 === 0) { g.moveTo(-6, 0); g.lineTo(6, 0); } if (q % 2) { g.moveTo(0, -8); g.lineTo(0, 9); } g.stroke(); g.restore(); }
+      for (var t = 0; t < 2; t++) { g.beginPath(); for (var v = 0; v < 3; v++) { var c2 = t * 3.1416 / 3 + v * 2.0944 - 1.5708; var px2 = Math.cos(c2) * 72, py2 = Math.sin(c2) * 72; if (v) g.lineTo(px2, py2); else g.moveTo(px2, py2); } g.closePath(); g.stroke(); }
+      g.beginPath(); g.arc(0, 0, 10, 0, 6.2832); g.fill();
+    });
+    bookCircle = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.46), addM(circT)); bookCircle.position.set(-0.01, 0.02, 0.09); bookG.add(bookCircle);
+    var N = 44, pos = new Float32Array(N * 3); sparkAge = [];
+    for (var i = 0; i < N; i++) sparkAge.push(Math.random());
+    var sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    var dotT = tex(function (g) { var gr = g.createRadialGradient(128, 128, 0, 128, 128, 128); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 256, 256); });
+    bookSpark = new THREE.Points(sg, new THREE.PointsMaterial({ size: 0.028, map: dotT, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, color: 0xffffff }));
+    bookSpark.frustumCulled = false; bookG.add(bookSpark);
+    bookG.visible = false; camera.add(bookG);
+  })();
+  function setBook() {
+    var e = bk.p * bk.p * (3 - 2 * bk.p);
+    bookG.visible = bk.p > 0;
+    bookG.position.set(-0.13, -0.5 + 0.3 * e, -0.36 - 0.06 * e);
+    bookG.rotation.set(-0.3, 0.2, 0.05);
+    var oe = bk.o * bk.o * (3 - 2 * bk.o);
+    bookCover.rotation.y = 2.6 * oe;
+    if (bk.p <= 0) return;
+    var now = performance.now(), col = new THREE.Color().setHSL((now * 0.00018) % 1, 0.9, 0.62);
+    bookCov.emissive.copy(col).multiplyScalar(0.35 * bk.p + 0.35 * bk.o);
+    bookGold.emissive.copy(col).multiplyScalar(0.8 * bk.o);
+    bookAura.material.color.copy(col); bookAura.material.opacity = 0.75 * oe * (0.85 + 0.15 * Math.sin(now * 0.012));
+    var ce = Math.max(0, Math.min(1, (bk.t - 0.55) / 0.55));
+    bookCircle.material.color.copy(col); bookCircle.material.opacity = 0.95 * ce * ce;
+    bookCircle.rotation.z = now * 0.0012; bookCircle.scale.setScalar(0.4 + 0.6 * ce);
+    bookSpark.material.color.copy(col); bookSpark.material.opacity = Math.min(1, bk.o * 1.6);
+    var arr = bookSpark.geometry.attributes.position.array;
+    for (var i = 0; i < sparkAge.length; i++) {
+      var a = (sparkAge[i] + (now * 0.00055)) % 1, ang = i * 2.4 + now * 0.002 * (1 + (i % 3) * 0.3), rad = 0.04 + 0.1 * a;
+      arr[i * 3] = Math.cos(ang) * rad - 0.01; arr[i * 3 + 1] = -0.1 + 0.32 * a + Math.sin(ang) * 0.02; arr[i * 3 + 2] = 0.03 + 0.2 * a;
+    }
+    bookSpark.geometry.attributes.position.needsUpdate = true;
+  }
+  function hideBook() { bk.opening = false; bk.p = 0; bk.o = 0; bk.t = 0; bookG.visible = false; }
+
+  // ---------- seasons: shared uniforms and a small shader patch that tints materials per season ----------
+  var SU = { uSpr: { value: 0 }, uSum: { value: 1 }, uAut: { value: 0 }, uWin: { value: 0 } };
+  var SEASON_GLSL = [
+    'uniform float uSpr; uniform float uSum; uniform float uAut; uniform float uWin;',
+    'vec3 seasonTint(vec3 c, vec4 bw) {',
+    '  float lava = smoothstep(0.35, 0.55, c.r - c.b) * bw.w;',
+    '  c = mix(c, c * vec3(0.9, 1.22, 0.85), uSpr * (bw.x * 0.9 + bw.z * 0.4));',
+    '  c = mix(c, c * vec3(0.8, 0.98, 0.82), uSum * bw.x * 0.6);',
+    '  c = mix(c, c * vec3(1.12, 0.94, 0.72), uSum * bw.z * 0.5);',
+    '  c = mix(c, vec3(0.6, 0.34, 0.1) * (0.75 + c.g * 1.1), uAut * bw.x * 0.8);',
+    '  c = mix(c, c * vec3(0.8, 0.66, 0.55), uAut * bw.z * 0.5);',
+    '  float snow = uWin * (bw.x * 0.92 + bw.y * 0.6 + bw.z * 0.5 + bw.w * 0.14) * (1.0 - lava);',
+    '  vec3 sc = vec3(0.9, 0.94, 1.0) * (0.88 + dot(c, vec3(0.3)) * 0.35);',
+    '  return mix(c, sc, clamp(snow, 0.0, 1.0));',
+    '}'
+  ].join('\n');
+  // mode: 'terrain' (per-vertex biome weights), 'floor' (meadow only), 'snowy' (evergreen foliage), 'canopy' (broadleaf trees)
+  function seasonize(mat, mode) {
+    mat.customProgramCacheKey = function () { return 'season-' + mode; };
+    mat.onBeforeCompile = function (sh) {
+      sh.uniforms.uSpr = SU.uSpr; sh.uniforms.uSum = SU.uSum; sh.uniforms.uAut = SU.uAut; sh.uniforms.uWin = SU.uWin;
+      var vs = sh.vertexShader, fs = sh.fragmentShader;
+      if (mode === 'terrain') {
+        vs = vs.replace('#include <common>', '#include <common>\nattribute vec4 aBW;\nvarying vec4 vBW;')
+               .replace('#include <begin_vertex>', '#include <begin_vertex>\nvBW = aBW;');
+        fs = fs.replace('#include <common>', '#include <common>\nvarying vec4 vBW;\n' + SEASON_GLSL)
+               .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb = seasonTint(diffuseColor.rgb, vBW);');
+      } else if (mode === 'floor') {
+        fs = fs.replace('#include <common>', '#include <common>\n' + SEASON_GLSL)
+               .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb = seasonTint(diffuseColor.rgb, vec4(1.0, 0.0, 0.0, 0.0));');
+      } else if (mode === 'snowy') {
+        fs = fs.replace('#include <common>', '#include <common>\nuniform float uWin;')
+               .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9, 0.94, 1.0), uWin * 0.7);');
+      } else if (mode === 'canopy') {
+        vs = vs.replace('#include <common>', '#include <common>\nuniform float uWin; uniform float uAut;')
+               .replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed *= (1.0 - 0.1 * uAut - 0.87 * uWin);');
+        fs = fs.replace('#include <common>', '#include <common>\nuniform float uSpr; uniform float uSum; uniform float uAut;')
+               .replace('#include <color_fragment>', '#include <color_fragment>\n{ vec3 g = diffuseColor.rgb; vec3 sp = g * vec3(1.2, 1.4, 0.9); vec3 au = vec3(0.85, 0.4, 0.1) * (0.6 + g.g * 2.0); diffuseColor.rgb = sp * uSpr + g * uSum + au * uAut + g * (1.0 - uSpr - uSum - uAut); }');
+      }
+      sh.vertexShader = vs; sh.fragmentShader = fs;
+    };
+    return mat;
+  }
+
+  var hemi = new THREE.HemisphereLight(0xcfe4ff, 0x4d6b35, 0.95);
+  scene.add(hemi);
+  var sun = new THREE.DirectionalLight(0xfff0d2, 0.9);
+  sun.position.set(60, 90, 30);
+  scene.add(sun);
+
+  // ---------- sky dome (follows the camera) ----------
+  var sky = new THREE.Mesh(
+    new THREE.SphereGeometry(300, 24, 16),
+    new THREE.ShaderMaterial({
+      side: THREE.BackSide, depthWrite: false, fog: false,
+      uniforms: {
+        top: { value: new THREE.Color(0x4c98dc) }, bottom: { value: new THREE.Color(HORIZON) },
+        sunDir: { value: new THREE.Vector3(0, 1, 0) }, glowCol: { value: new THREE.Color(0xff8a3c) }, glowAmt: { value: 0 }
+      },
+      vertexShader: 'varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform vec3 top; uniform vec3 bottom; uniform vec3 sunDir; uniform vec3 glowCol; uniform float glowAmt; varying vec3 vDir; void main(){ float t = smoothstep(0.0, 0.65, max(vDir.y, 0.0)); vec3 col = mix(bottom, top, t); float g = pow(max(dot(vDir, normalize(sunDir)), 0.0), 5.0); col += glowCol * g * glowAmt * (1.0 - t * 0.6); gl_FragColor = vec4(col, 1.0); }'
+    })
+  );
+  sky.renderOrder = -1;
+  scene.add(sky);
+  var sunDisc = new THREE.Mesh(new THREE.SphereGeometry(10, 16, 12), new THREE.MeshBasicMaterial({ color: 0xfff6d6, fog: false }));
+  var sunDir = new THREE.Vector3(120, 180, 60).normalize();
+  sunDisc.position.copy(sunDir).multiplyScalar(260);
+  scene.add(sunDisc);
+  var moonDisc = new THREE.Mesh(new THREE.SphereGeometry(7, 16, 12), new THREE.MeshBasicMaterial({ color: 0xe6edff, fog: false }));
+  scene.add(moonDisc);
+  var moonLight = new THREE.DirectionalLight(0x7f96e0, 0);
+  scene.add(moonLight);
+
+  // stars, visible only inside the dark biome
+  var starPos = [];
+  for (var sti = 0; sti < 900; sti++) {
+    var sth = Math.random() * Math.PI * 2, sph = Math.acos(Math.random() * 0.92 + 0.08);
+    starPos.push(250 * Math.sin(sph) * Math.cos(sth), 250 * Math.cos(sph), 250 * Math.sin(sph) * Math.sin(sth));
+  }
+  var starGeo = new THREE.BufferGeometry();
+  starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
+  var stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xdfe6ff, size: 1.5, sizeAttenuation: false, fog: false, transparent: true, opacity: 0, depthWrite: false }));
+  scene.add(stars);
+
+  var clouds = [];
+  var cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.92, fog: false });
+  for (var ci = 0; ci < 9; ci++) {
+    var cg = new THREE.Group();
+    for (var cj = 0; cj < 4; cj++) {
+      var puff = new THREE.Mesh(new THREE.SphereGeometry(7 + Math.random() * 6, 10, 8), cloudMat);
+      puff.position.set(cj * 9 - 14 + Math.random() * 4, Math.random() * 3, Math.random() * 6);
+      puff.scale.y = 0.45;
+      cg.add(puff);
+    }
+    var ca = Math.random() * Math.PI * 2, cr = 70 + Math.random() * 150;
+    cg.userData = { ox: Math.cos(ca) * cr, oz: Math.sin(ca) * cr, oy: 70 + Math.random() * 40, sp: 1.2 + Math.random() * 1.2 };
+    cg.position.set(cg.userData.ox, cg.userData.oy, cg.userData.oz);
+    scene.add(cg); clouds.push(cg);
+  }
+
+  // ---------- grass ----------
+  function grassTexture() {
+    var S = 512, c = document.createElement('canvas'); c.width = c.height = S;
+    var g = c.getContext('2d');
+    g.fillStyle = '#4a8636'; g.fillRect(0, 0, S, S);
+    for (var i = 0; i < 60; i++) {
+      g.fillStyle = Math.random() < 0.5 ? 'rgba(100,160,62,0.10)' : 'rgba(36,92,38,0.10)';
+      g.beginPath(); g.arc(Math.random() * S, Math.random() * S, 30 + Math.random() * 60, 0, 6.283); g.fill();
+    }
+    for (var j = 0; j < 7000; j++) {
+      var gx = Math.random() * S, gy = Math.random() * S, l = 3 + Math.random() * 7, sh = Math.random();
+      g.strokeStyle = sh < 0.33 ? 'rgba(118,176,72,0.55)' : sh < 0.66 ? 'rgba(46,98,36,0.55)' : 'rgba(150,196,92,0.4)';
+      g.lineWidth = 1 + Math.random() * 1.2;
+      g.beginPath(); g.moveTo(gx, gy); g.lineTo(gx + (Math.random() - 0.5) * 4, gy - l); g.stroke();
+    }
+    var t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8;
+    return t;
+  }
+  var grass = grassTexture();
+  grass.repeat.set(BOUND / 2, BOUND / 2);
+  var floor = new THREE.Mesh(new THREE.PlaneGeometry(BOUND * 2, BOUND * 2), seasonize(new THREE.MeshStandardMaterial({ map: grass, roughness: 1, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), 'floor'));
+  floor.rotation.x = -Math.PI / 2;
+  scene.add(floor);
+
+  // ---------- ancient stone ----------
+  // One tall canvas covers a wall section 8 units wide and 12 high (12 rows of 1 unit).
+  function stoneCanvases() {
+    var W = 1024, H = 1536, rows = 12, rh = H / rows;
+    var c = document.createElement('canvas'); c.width = W; c.height = H;
+    var b = document.createElement('canvas'); b.width = W; b.height = H;
+    var g = c.getContext('2d'), h = b.getContext('2d');
+    g.fillStyle = '#4b443a'; g.fillRect(0, 0, W, H);
+    h.fillStyle = '#1c1c1c'; h.fillRect(0, 0, W, H);
+    for (var r = 0; r < rows; r++) {
+      var n = 4, ws = [], sum = 0, i;
+      for (i = 0; i < n; i++) { ws.push(0.6 + Math.random() * 0.8); sum += ws[i]; }
+      var x = Math.random() * W, y = r * rh, pad = 5;
+      for (i = 0; i < n; i++) {
+        var bw = ws[i] / sum * W;
+        var tone = 118 + Math.random() * 55, warm = Math.random() * 20;
+        var col = 'rgb(' + Math.round(tone + warm) + ',' + Math.round(tone + warm * 0.5 - 6) + ',' + Math.round(tone - 22) + ')';
+        var hv = Math.round(150 + Math.random() * 90), hcol = 'rgb(' + hv + ',' + hv + ',' + hv + ')';
+        for (var wrapK = 0; wrapK < 2; wrapK++) {
+          var bx = x - wrapK * W;
+          g.fillStyle = col; g.fillRect(bx + pad, y + pad, bw - pad * 2, rh - pad * 2);
+          h.fillStyle = hcol; h.fillRect(bx + pad, y + pad, bw - pad * 2, rh - pad * 2);
+          for (var k = 0; k < 70; k++) {
+            g.fillStyle = 'rgba(0,0,0,' + (Math.random() * 0.14) + ')';
+            g.fillRect(bx + pad + Math.random() * (bw - pad * 2), y + pad + Math.random() * (rh - pad * 2), 2 + Math.random() * 9, 2 + Math.random() * 6);
+            g.fillStyle = 'rgba(255,245,220,' + (Math.random() * 0.07) + ')';
+            g.fillRect(bx + pad + Math.random() * (bw - pad * 2), y + pad + Math.random() * (rh - pad * 2), 2 + Math.random() * 7, 2 + Math.random() * 5);
+          }
+        }
+        x = (x + bw) % W;
+      }
+    }
+    // water stains running down
+    for (var s = 0; s < 46; s++) {
+      var sx = Math.random() * W, sy = Math.random() * H * 0.8, sl = 100 + Math.random() * 300;
+      var grad = g.createLinearGradient(0, sy, 0, sy + sl);
+      grad.addColorStop(0, 'rgba(20,16,10,0.0)'); grad.addColorStop(0.3, 'rgba(20,16,10,0.16)'); grad.addColorStop(1, 'rgba(20,16,10,0.0)');
+      g.fillStyle = grad; g.fillRect(sx, sy, 4 + Math.random() * 10, sl);
+    }
+    // cracks
+    for (var q = 0; q < 16; q++) {
+      var cx = Math.random() * W, cy = Math.random() * H;
+      g.strokeStyle = 'rgba(22,18,12,0.65)'; g.lineWidth = 1.5 + Math.random() * 1.5;
+      g.beginPath(); g.moveTo(cx, cy);
+      for (var z = 0; z < 6; z++) { cx += (Math.random() - 0.5) * 36; cy += 10 + Math.random() * 26; g.lineTo(cx, cy); }
+      g.stroke();
+      h.strokeStyle = 'rgba(0,0,0,0.9)'; h.lineWidth = 3; h.stroke();
+    }
+    // moss, thicker near the base (bottom of the canvas)
+    for (var m = 0; m < 1100; m++) {
+      var my = H - Math.pow(Math.random(), 2.3) * H * 0.6, mx = Math.random() * W, mr = 5 + Math.random() * 24;
+      g.fillStyle = Math.random() < 0.5 ? 'rgba(74,112,38,' + (0.18 + Math.random() * 0.3) + ')' : 'rgba(54,90,34,' + (0.16 + Math.random() * 0.3) + ')';
+      g.beginPath(); g.arc(mx, my, mr, 0, 6.283); g.fill();
+    }
+    return { color: c, bump: b };
+  }
+  var stone = stoneCanvases();
+  function stoneMaterial(rx, ry, ox, oy) {
+    var t = new THREE.CanvasTexture(stone.color), b = new THREE.CanvasTexture(stone.bump);
+    [t, b].forEach(function (x) { x.wrapS = x.wrapT = THREE.RepeatWrapping; x.anisotropy = 8; x.repeat.set(rx, ry); x.offset.set(ox || 0, oy || 0); });
+    return new THREE.MeshStandardMaterial({ map: t, bumpMap: b, bumpScale: 2.2, roughness: 1, metalness: 0 });
+  }
+  var wallLen = BOUND * 2 + WALL_T * 2;
+  var wallMat = stoneMaterial(wallLen / 8, 1);
+  var towerMat = stoneMaterial(3, 1.25);
+  var blockMat = stoneMaterial(0.2, 0.07, 0.3, 0.02);
+  var merMat = stoneMaterial(0.2, 0.09, 0.4, 0.45);
+  var ringMat = stoneMaterial(3.4, 0.08, 0, 0.5);
+
+  var colliders = []; // circles: {x, z, r, h} where h is the height you can jump over (999 = solid)
+  function addCollider(x, z, r, h, y) { var c = { x: x, z: z, r: r, h: h, y: y || 0 }; colliders.push(c); return c; }
+
+  // walls
+  var wallDefs = [
+    { dir: 'N', cx: 0, cz: -(BOUND + WALL_T / 2), sx: wallLen, sz: WALL_T },
+    { dir: 'S', cx: 0, cz: BOUND + WALL_T / 2, sx: wallLen, sz: WALL_T },
+    { dir: 'E', cx: BOUND + WALL_T / 2, cz: 0, sx: WALL_T, sz: wallLen },
+    { dir: 'W', cx: -(BOUND + WALL_T / 2), cz: 0, sx: WALL_T, sz: wallLen }
+  ];
+  var merlons = []; // [x, z, rotY, scaleY, baseY]
+  wallDefs.forEach(function (w) {
+    if (w.dir === 'N') {
+      // the north wall has an opening for the gate: two long pieces and a header above the doors
+      var sideW = wallLen / 2 - GATE;
+      [-1, 1].forEach(function (sg) {
+        var piece = new THREE.Mesh(new THREE.BoxGeometry(sideW, WALL_H, w.sz), stoneMaterial(sideW / 8, 1));
+        piece.position.set(sg * (GATE + sideW / 2), WALL_H / 2, w.cz);
+        scene.add(piece);
+      });
+      var header = new THREE.Mesh(new THREE.BoxGeometry(GATE * 2, WALL_H - 8, w.sz), stoneMaterial(GATE * 2 / 8, (WALL_H - 8) / WALL_H, 0, 8 / WALL_H));
+      header.position.set(0, 8 + (WALL_H - 8) / 2, w.cz);
+      scene.add(header);
+    } else {
+      var mesh = new THREE.Mesh(new THREE.BoxGeometry(w.sx, WALL_H, w.sz), wallMat);
+      mesh.position.set(w.cx, WALL_H / 2, w.cz);
+      scene.add(mesh);
+    }
+    for (var t = -(BOUND - 1); t <= BOUND - 1; t += 3) {
+      [0.6, WALL_T - 0.6].forEach(function (d) {
+        if (Math.random() < 0.24) return; // crumbled gap
+        var sy = 0.55 + Math.random() * 0.75;
+        if (w.dir === 'N') merlons.push([t, -(BOUND + d), 0, sy, WALL_H]);
+        if (w.dir === 'S') merlons.push([t, BOUND + d, 0, sy, WALL_H]);
+        if (w.dir === 'E') merlons.push([BOUND + d, t, Math.PI / 2, sy, WALL_H]);
+        if (w.dir === 'W') merlons.push([-(BOUND + d), t, Math.PI / 2, sy, WALL_H]);
+      });
+    }
+  });
+
+  // corner towers
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (c) {
+    var tx = c[0] * BOUND, tz = c[1] * BOUND, th = 16 + Math.random() * 2;
+    var tower = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.95, th, 22), towerMat);
+    tower.position.set(tx, th / 2, tz); scene.add(tower);
+    var ring = new THREE.Mesh(new THREE.CylinderGeometry(4.1, 3.7, 0.9, 22), ringMat);
+    ring.position.set(tx, th + 0.1, tz); scene.add(ring);
+    for (var a = 0; a < 11; a++) {
+      if (Math.random() < 0.25) continue;
+      var ang = a / 11 * Math.PI * 2;
+      merlons.push([tx + Math.cos(ang) * 3.7, tz + Math.sin(ang) * 3.7, -ang + Math.PI / 2, 0.55 + Math.random() * 0.7, th + 0.55]);
+    }
+    addCollider(tx, tz, 3.75, 999);
+  });
+
+  var merGeo = new THREE.BoxGeometry(1.7, 1.4, 1.0);
+  var merInst = new THREE.InstancedMesh(merGeo, merMat, merlons.length);
+  var dummy = new THREE.Object3D();
+  merlons.forEach(function (m, i) {
+    dummy.position.set(m[0], m[4] + 0.7 * m[3], m[1]);
+    dummy.rotation.set(0, m[2], 0); dummy.scale.set(1, m[3], 1);
+    dummy.updateMatrix(); merInst.setMatrixAt(i, dummy.matrix);
+  });
+  merInst.instanceMatrix.needsUpdate = true; merInst.frustumCulled = false;
+  scene.add(merInst);
+
+  // old gate in the north wall
+  var gz = -BOUND;
+  var woodMat = new THREE.MeshStandardMaterial({ color: 0x3b2a1d, roughness: 1 });
+  var ironMat = new THREE.MeshStandardMaterial({ color: 0x232323, roughness: 0.8, metalness: 0.4 });
+  // two door leaves that swing open into the fort as you approach
+  var leaves = [], doorOpen = 0, doorTarget = 0;
+  [-1, 1].forEach(function (hs) {
+    var pivot = new THREE.Group();
+    pivot.position.set(hs * GATE, 3.95, -(BOUND + WALL_T / 2));
+    pivot.userData = { side: hs };
+    var leaf = new THREE.Mesh(new THREE.BoxGeometry(GATE, 7.9, 0.4), woodMat);
+    leaf.position.x = -hs * GATE / 2;
+    pivot.add(leaf);
+    [-1.95, 1.55].forEach(function (by) {
+      var band = new THREE.Mesh(new THREE.BoxGeometry(GATE + 0.05, 0.3, 0.46), ironMat);
+      band.position.set(-hs * GATE / 2, by, 0);
+      pivot.add(band);
+    });
+    scene.add(pivot); leaves.push(pivot);
+  });
+  var archTop = new THREE.Mesh(new THREE.BoxGeometry(10.8, 1.7, 1.7), blockMat); archTop.position.set(0, 8.7, gz + 0.7); scene.add(archTop);
+  var archOut = new THREE.Mesh(new THREE.BoxGeometry(10.8, 1.7, 1.7), blockMat); archOut.position.set(0, 8.7, gz - WALL_T - 0.7); scene.add(archOut);
+  [-4.3, 4.3].forEach(function (x) {
+    var pillar = new THREE.Mesh(new THREE.BoxGeometry(1.7, 9.6, 1.7), blockMat); pillar.position.set(x, 4.8, gz + 0.7); scene.add(pillar);
+    addCollider(x, gz + 0.7, 1.05, 999);
+    var pillarOut = new THREE.Mesh(new THREE.BoxGeometry(1.7, 9.6, 1.7), blockMat); pillarOut.position.set(x, 4.8, gz - WALL_T - 0.7); scene.add(pillarOut);
+    addCollider(x, gz - WALL_T - 0.7, 1.05, 999);
+  });
+
+  // fallen blocks along the base of the wall
+  for (var fb = 0; fb < 22; fb++) {
+    var fw = 0.9 + Math.random() * 0.9, fh = 0.4 + Math.random() * 0.35, fd = 0.7 + Math.random() * 0.7;
+    var side = Math.floor(Math.random() * 4), along = (Math.random() * 2 - 1) * (BOUND - 6), off = BOUND - 1.2 - Math.random() * 4;
+    var bx = side < 2 ? along : (side === 2 ? off : -off), bz = side < 2 ? (side === 0 ? -off : off) : along;
+    if (Math.abs(bx) < 7 && bz < -BOUND + 8) continue; // keep the gate clear
+    var blk = new THREE.Mesh(new THREE.BoxGeometry(fw, fh, fd), blockMat);
+    blk.position.set(bx, fh / 2, bz); blk.rotation.y = Math.random() * 3; blk.rotation.z = (Math.random() - 0.5) * 0.15;
+    scene.add(blk);
+    addCollider(bx, bz, Math.max(fw, fd) * 0.65, fh);
+  }
+
+  // ---------- trees and rocks ----------
+  var trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2b, roughness: 1 });
+  var leafMats = [0x2f6b34, 0x3a8240, 0x2a5f30].map(function (c) { return new THREE.MeshStandardMaterial({ color: c, roughness: 1, flatShading: true }); });
+  var rockMat = new THREE.MeshStandardMaterial({ color: 0x8b8a82, roughness: 1, flatShading: true });
+  var placed = [], trees = [], CAP = null, CUR = null;
+  function treeEnd(x, z, y, r, grp, wood) {
+    var t = { x: x, z: z, y: y, r: r, hp: 6, col: null, parts: CAP || [], grp: grp || null, dx: 0, dz: 1, sh: 0, fall: -1, dead: false, act: false, key: null, wood: wood || 'wood' };
+    if (CUR) { t.col = { x: x, z: z, r: r, h: 999, y: y }; t.key = CUR.id + ',' + CUR.trees.length; CUR.trees.push(t); }
+    else { t.col = addCollider(x, z, r, 999, y); trees.push(t); }
+    CAP = null;
+  }
+  function freeSpot(minDist, margin) {
+    for (var tries = 0; tries < 80; tries++) {
+      var x = (Math.random() * 2 - 1) * (BOUND - margin), z = (Math.random() * 2 - 1) * (BOUND - margin);
+      if (Math.hypot(x, z) < 8) continue;
+      var ok = true;
+      for (var i = 0; i < placed.length; i++) if (Math.hypot(placed[i][0] - x, placed[i][1] - z) < minDist) { ok = false; break; }
+      if (ok) { placed.push([x, z]); return [x, z]; }
+    }
+    return null;
+  }
+  // ---------- training dummy inside the fort (tutorial target) ----------
+  var DUMMY = { x: -4, z: -12 };
+  placed.push([DUMMY.x, DUMMY.z]);
+  var dummyWood = new THREE.MeshStandardMaterial({ color: 0x8a5a2b, roughness: 1 });
+  var dummyStraw = new THREE.MeshStandardMaterial({ color: 0xc9a24a, roughness: 1 });
+  var dummyMats = [dummyWood, dummyStraw], dummyS = { a: 0, v: 0, dx: 0, dz: 1, flash: 0 };
+  var dummyG = new THREE.Group();
+  (function () {
+    var post = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.16, 2.0, 8), dummyWood); post.position.y = 1.0;
+    var bar = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.14, 0.14), dummyWood); bar.position.y = 1.55;
+    var body = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.34, 0.8, 10), dummyStraw); body.position.y = 1.3;
+    var head = new THREE.Mesh(new THREE.SphereGeometry(0.27, 12, 8), dummyStraw); head.position.y = 2.1;
+    var foot = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.5, 0.12, 12), dummyWood); foot.position.y = 0.06;
+    dummyG.add(post, bar, body, head, foot);
+  })();
+  dummyG.position.set(DUMMY.x, 0, DUMMY.z);
+  scene.add(dummyG);
+  addCollider(DUMMY.x, DUMMY.z, 0.55, 999, 0);
+
+  for (var ti = 0; ti < 18; ti++) {
+    var p = freeSpot(6, 9); if (!p) continue;
+    var sc = 0.85 + Math.random() * 0.7, lm = leafMats[ti % 3];
+    var tg = new THREE.Group(); tg.position.set(p[0], 0, p[1]); scene.add(tg);
+    var trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.28 * sc, 0.42 * sc, 2.6 * sc, 8), trunkMat);
+    trunk.position.set(0, 1.3 * sc, 0); tg.add(trunk);
+    for (var ln = 0; ln < 3; ln++) {
+      var cone = new THREE.Mesh(new THREE.ConeGeometry((2.1 - ln * 0.5) * sc, 2.4 * sc, 9), lm);
+      cone.position.set(0, (3.0 + ln * 1.5) * sc, 0); tg.add(cone);
+    }
+    treeEnd(p[0], p[1], 0, 0.7 * sc, tg);
+  }
+  for (var ri = 0; ri < 14; ri++) {
+    var rp = freeSpot(4, 7); if (!rp) continue;
+    var rs = 0.45 + Math.random() * 0.7;
+    var rock = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), rockMat);
+    rock.scale.set(rs * 1.2, rs * 0.8, rs); rock.position.set(rp[0], rs * 0.5, rp[1]); rock.rotation.y = Math.random() * 3;
+    scene.add(rock);
+    addCollider(rp[0], rp[1], rs * 1.0, rs * 1.0);
+  }
+
+  // ---------- open world: noise, biomes, terrain ----------
+  // Biomes: 0 normal meadow, 1 dark, 2 savanna, 3 volcanic. The fort sits in the meadow; dark lies north, savanna east, volcanic south.
+  var WS = 4.5, NB = 90, PLAY = 1000, WIN = 192, FORT_HALF = BOUND + WALL_T + 8;
+  function hash2(ix, iy) {
+    var h = (Math.imul(ix, 374761393) + Math.imul(iy, 668265263)) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  }
+  function vnoise(x, y) {
+    var ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
+    var u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+    var a = hash2(ix, iy), b = hash2(ix + 1, iy), c = hash2(ix, iy + 1), d = hash2(ix + 1, iy + 1);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  }
+  function fbm(x, y, o) { var s = 0, a = 0.5, f = 1; for (var i = 0; i < o; i++) { s += a * vnoise(x * f, y * f); f *= 2; a *= 0.5; } return s; }
+  function sstep(a, b, x) { var t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
+
+  function biomeWeights(x, z, out) {
+    // computed in "unit" coordinates (metres / WS) so the layout keeps its shape at 20x the area; NB widens the meadow
+    var u = x / WS, v = z / WS, r = Math.hypot(u, v), nz = (fbm(u * 0.012 + 11, v * 0.012 + 7, 2) - 0.47) * 85, T = 18;
+    var s0 = Math.max(-u * 0.8, 150 - r) + nz * 0.6 + NB, s1 = -v + nz, s2 = u - nz, s3 = v + nz * 0.8;
+    var m = Math.max(s0, s1, s2, s3);
+    var e0 = Math.exp((s0 - m) / T), e1 = Math.exp((s1 - m) / T), e2 = Math.exp((s2 - m) / T), e3 = Math.exp((s3 - m) / T), sum = e0 + e1 + e2 + e3;
+    out[0] = e0 / sum; out[1] = e1 / sum; out[2] = e2 / sum; out[3] = e3 / sum;
+  }
+
+  var VOLC = [{ x: 100, z: 780, R: 100, H: 60 }, { x: -250, z: 880, R: 90, H: 48 }, { x: 520, z: 860, R: 95, H: 55 }, { x: 350, z: 640, R: 80, H: 45 }];
+  var LAKES = [[-120, 640, 40], [300, 760, 48], [-330, 900, 52], [700, 780, 55], [560, 980, 60], [30, 960, 45], [-150, 740, 40], [250, 900, 50], [430, 780, 42]];
+  var W3 = [0, 0, 0, 1];
+  function baseHeight(x, z, w) {
+    var n1 = fbm(x * 0.018, z * 0.018, 4) - 0.47, n2 = fbm(x * 0.06 + 50, z * 0.06 + 20, 2) - 0.47;
+    var h = w[0] * (n1 * 9 + n2 * 1.2) + w[1] * (n1 * 15 + n2 * 2.4) + w[2] * (n1 * 4 + n2 * 0.8) + w[3] * (n1 * 10 + n2 * 3);
+    if (w[3] > 0.02) {
+      for (var i = 0; i < VOLC.length; i++) {
+        var v = VOLC[i], d = Math.hypot(x - v.x, z - v.z);
+        if (d < v.R) {
+          var d0 = v.R * 0.2, hh = v.H * Math.pow(1 - Math.max(d, d0) / v.R, 1.6);
+          if (d < d0) hh -= v.H * 0.35 * (1 - (d / d0) * (d / d0));
+          h += hh * Math.min(1, w[3] * 1.6);
+        }
+      }
+    }
+    return h;
+  }
+  // lava lakes and volcanoes too close to the sea would sit on the beach, so they are dropped
+  LAKES = LAKES.filter(function (l) { return edgeDist(l[0], l[1]) > 190; });
+  VOLC = VOLC.filter(function (v) { return edgeDist(v.x, v.z) > 200; });
+  var lakeY = LAKES.map(function (l) { return baseHeight(l[0], l[1], W3) - 1.5; });
+  var BW0 = [1, 0, 0, 0];
+  // sea level; the world ends in open sea beyond the beach on every side
+  var SEA_Y = -2.5, END_PAD = 70;
+  function edgeDist(x, z) { return PLAY - Math.max(Math.abs(x), Math.abs(z)); }
+  // large-scale relief: wide plains, mountain ranges and winding valleys (kept clear of lava country and of the fort)
+  function relief(x, z, h, w) {
+    var nv = 1 - w[3];
+    var pl = sstep(0.44, 0.52, fbm(x * 0.0022 + 300, z * 0.0022 + 120, 3));
+    h *= 1 - 0.85 * pl * nv;
+    var far = sstep(120, 420, Math.hypot(x, z));
+    var mt = fbm(x * 0.0028 + 60, z * 0.0028 + 410, 3), mm = sstep(0.45, 0.67, mt) * (1 - pl * 0.9) * nv * far;
+    h += (sstep(0.545, 0.556, mt) + sstep(0.62, 0.631, mt)) * 12 * (1 - pl * 0.9) * nv * far; // cliff bands
+    if (mm > 0) { var rg = 1 - Math.abs(2 * fbm(x * 0.011 + 7, z * 0.011 + 3, 3) - 1); h += mm * (36 + 12 * rg); }
+    var vv = Math.max(0, 1 - Math.abs(fbm(x * 0.0025 + 500, z * 0.0025 + 90, 2) - 0.36) / 0.04);
+    h -= vv * vv * (3 - 2 * vv) * (6 + 10 * mm) * nv;
+    return h;
+  }
+  function shore(x, z, h) {
+    var d = edgeDist(x, z);
+    if (d >= 230) return h;
+    var dune = (vnoise(x * 0.04 + 9, z * 0.04 + 5) - 0.5) * 0.4;
+    if (d >= 80) return h + (1.0 + dune - h) * (1 - sstep(80, 230, d));
+    var y = d >= 48 ? 1.0 - 3.5 * sstep(80, 48, d) : -2.5 - 19.5 * sstep(48, -40, d);
+    return y + dune * sstep(40, 80, d);
+  }
+  function heightAt(x, z) {
+    var mask = sstep(FORT_HALF, FORT_HALF + 34, Math.max(Math.abs(x), Math.abs(z)));
+    if (mask <= 0) return 0;
+    biomeWeights(x, z, BW0);
+    var h = baseHeight(x, z, BW0);
+    if (BW0[3] > 0.02) {
+      for (var k = 0; k < LAKES.length; k++) {
+        var dd = Math.hypot(x - LAKES[k][0], z - LAKES[k][1]), r = LAKES[k][2];
+        if (dd < r * 1.8) h += (lakeY[k] - h) * (1 - sstep(r * 0.8, r * 1.8, dd));
+      }
+    }
+    h = relief(x, z, h, BW0);
+    return shore(x, z, h * mask);
+  }
+
+  var COL = [
+    [[0.27, 0.52, 0.2], [0.36, 0.62, 0.25], [0.36, 0.3, 0.17]],
+    [[0.09, 0.13, 0.13], [0.14, 0.2, 0.17], [0.05, 0.06, 0.08]],
+    [[0.72, 0.62, 0.3], [0.82, 0.72, 0.39], [0.58, 0.4, 0.22]],
+    [[0.13, 0.11, 0.1], [0.22, 0.18, 0.16], [0.4, 0.37, 0.36]]
+  ];
+  function terrainColor(x, z, h, w, out) {
+    var t = fbm(x * 0.05 + 3, z * 0.05 + 9, 2), j = vnoise(x * 0.35, z * 0.35);
+    var patch = sstep(0.55, 0.72, t) * 0.8, ash = sstep(16, 32, h), r = 0, g = 0, b = 0, i, k, dd;
+    for (i = 0; i < 4; i++) {
+      var cs = COL[i], m = i === 3 ? Math.max(patch * 0.5, ash) : patch;
+      var b0 = cs[0][0] + (cs[1][0] - cs[0][0]) * j, b1 = cs[0][1] + (cs[1][1] - cs[0][1]) * j, b2 = cs[0][2] + (cs[1][2] - cs[0][2]) * j;
+      r += (b0 + (cs[2][0] - b0) * m) * w[i]; g += (b1 + (cs[2][1] - b1) * m) * w[i]; b += (b2 + (cs[2][2] - b2) * m) * w[i];
+    }
+    var hot = 0;
+    for (k = 0; k < LAKES.length; k++) { dd = Math.hypot(x - LAKES[k][0], z - LAKES[k][1]); hot = Math.max(hot, 1 - sstep(LAKES[k][2], LAKES[k][2] * 2.3, dd)); }
+    for (k = 0; k < VOLC.length; k++) { dd = Math.hypot(x - VOLC[k].x, z - VOLC[k].z); hot = Math.max(hot, 1 - sstep(VOLC[k].R * 0.1, VOLC[k].R * 0.3, dd)); }
+    hot *= w[3] * 0.85;
+    var shade = 0.9 + j * 0.2;
+    var cr = (r + (0.62 - r) * hot) * shade, cg = (g + (0.16 - g) * hot) * shade, cb = (b + (0.04 - b) * hot) * shade;
+    var nv = 1 - w[3], rk = sstep(24, 40, h) * nv, sn = sstep(52, 64, h) * nv;
+    cr += (0.46 - cr) * rk; cg += (0.44 - cg) * rk; cb += (0.42 - cb) * rk;
+    cr += (0.93 - cr) * sn; cg += (0.95 - cg) * sn; cb += (0.98 - cb) * sn;
+    var ed = edgeDist(x, z);
+    if (ed < 135) {
+      var sk = 1 - sstep(95, 135, ed), wet = sstep(-1.2, -4, h), deep = sstep(-4, -16, h);
+      var sr = (0.86 - 0.34 * wet) * shade, sg = (0.78 - 0.24 * wet) * shade, sb = (0.54 - 0.06 * wet) * shade;
+      sr += (0.12 - sr) * deep; sg += (0.3 - sg) * deep; sb += (0.4 - sb) * deep;
+      cr += (sr - cr) * sk; cg += (sg - cg) * sk; cb += (sb - cb) * sk;
+    }
+    out[0] = cr; out[1] = cg; out[2] = cb;
+  }
+
+  var detail = (function () {
+    var c = document.createElement('canvas'); c.width = c.height = 128;
+    var g = c.getContext('2d'); g.fillStyle = '#d4d4d4'; g.fillRect(0, 0, 128, 128);
+    for (var i = 0; i < 2200; i++) { var v = Math.floor(150 + Math.random() * 105); g.fillStyle = 'rgb(' + v + ',' + v + ',' + v + ')'; g.fillRect(Math.random() * 128, Math.random() * 128, 1 + Math.random() * 2, 1 + Math.random() * 2); }
+    var t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(WIN * 2 / 6, WIN * 2 / 6); t.anisotropy = 4;
+    return t;
+  })();
+  // The terrain is a moving window (fog hides everything past ~160 m). Two meshes take turns: one is shown while the other is rebuilt a few rows per frame.
+  var TCELL = 4, TSEG = WIN * 2 / TCELL;
+  var tMat = seasonize(new THREE.MeshStandardMaterial({ vertexColors: true, map: detail, roughness: 1, metalness: 0 }), 'terrain');
+  function makeTerrain() {
+    var g = new THREE.PlaneGeometry(WIN * 2, WIN * 2, TSEG, TSEG); g.rotateX(-Math.PI / 2);
+    var p = g.attributes.position, n = p.count, lx = new Float32Array(n), lz = new Float32Array(n), i;
+    for (i = 0; i < n; i++) { lx[i] = p.getX(i); lz[i] = p.getZ(i); }
+    g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+    g.setAttribute('aBW', new THREE.BufferAttribute(new Float32Array(n * 4), 4));
+    var m = new THREE.Mesh(g, tMat); m.frustumCulled = false; m.visible = false; scene.add(m);
+    return { m: m, g: g, lx: lx, lz: lz, n: n, cx: 0, cz: 0 };
+  }
+  var terrA = makeTerrain(), terrB = makeTerrain(), terrShow = null, terrBuild = null, tW = [0, 0, 0, 0], tRGB = [0, 0, 0];
+  function fillTerrain(T, i0, i1) {
+    var pos = T.g.attributes.position, cols = T.g.attributes.color.array, bws = T.g.attributes.aBW.array;
+    for (var i = i0; i < i1; i++) {
+      var x = T.cx + T.lx[i], z = T.cz + T.lz[i], h = heightAt(x, z);
+      pos.setY(i, h);
+      biomeWeights(x, z, tW); terrainColor(x, z, h, tW, tRGB);
+      bws[i * 4] = tW[0]; bws[i * 4 + 1] = tW[1]; bws[i * 4 + 2] = tW[2]; bws[i * 4 + 3] = tW[3];
+      cols[i * 3] = tRGB[0]; cols[i * 3 + 1] = tRGB[1]; cols[i * 3 + 2] = tRGB[2];
+    }
+  }
+  function finishTerrain(T) {
+    T.g.attributes.position.needsUpdate = true; T.g.attributes.color.needsUpdate = true; T.g.attributes.aBW.needsUpdate = true;
+    T.g.computeVertexNormals(); T.m.position.set(T.cx, 0, T.cz); T.m.visible = true;
+    if (terrShow && terrShow !== T) terrShow.m.visible = false;
+    terrShow = T;
+  }
+  function forceTerrain(x, z) {
+    var T = terrShow === terrA ? terrB : terrA;
+    T.cx = Math.round(x / 12) * 12; T.cz = Math.round(z / 12) * 12; terrBuild = null;
+    fillTerrain(T, 0, T.n); finishTerrain(T);
+  }
+  function updateTerrain(x, z) {
+    if (terrBuild) {
+      var T = terrBuild.T, step = 5 * (TSEG + 1), end = Math.min(T.n, terrBuild.i + step);
+      fillTerrain(T, terrBuild.i, end); terrBuild.i = end;
+      if (end >= T.n) { finishTerrain(T); terrBuild = null; }
+    } else if (Math.abs(x - terrShow.cx) > 40 || Math.abs(z - terrShow.cz) > 40) {
+      var N = terrShow === terrA ? terrB : terrA;
+      N.cx = Math.round(x / 12) * 12; N.cz = Math.round(z / 12) * 12; terrBuild = { T: N, i: 0 };
+    }
+  }
+  forceTerrain(0, 0);
+
+  // walls and the gate block you in until the doors open
+  var solids = [
+    { x0: -(BOUND + WALL_T), x1: -GATE, z0: -(BOUND + WALL_T), z1: -BOUND },
+    { x0: GATE, x1: BOUND + WALL_T, z0: -(BOUND + WALL_T), z1: -BOUND },
+    { x0: -(BOUND + WALL_T), x1: BOUND + WALL_T, z0: BOUND, z1: BOUND + WALL_T },
+    { x0: BOUND, x1: BOUND + WALL_T, z0: -BOUND, z1: BOUND },
+    { x0: -(BOUND + WALL_T), x1: -BOUND, z0: -BOUND, z1: BOUND }
+  ];
+  var gateBlock = { x0: -GATE, x1: GATE, z0: -(BOUND + WALL_T), z1: -BOUND };
+  function pushBox(b) {
+    var cx = Math.max(b.x0, Math.min(b.x1, px)), cz = Math.max(b.z0, Math.min(b.z1, pz));
+    var dx = px - cx, dz = pz - cz, d = Math.hypot(dx, dz);
+    if (d >= RADIUS) return;
+    if (d > 0.0001) { px = cx + dx / d * RADIUS; pz = cz + dz / d * RADIUS; return; }
+    var l = px - b.x0, r = b.x1 - px, t = pz - b.z0, bo = b.z1 - pz, m = Math.min(l, r, t, bo);
+    if (m === l) px = b.x0 - RADIUS; else if (m === r) px = b.x1 + RADIUS; else if (m === t) pz = b.z0 - RADIUS; else pz = b.z1 + RADIUS;
+  }
+
+  // ---------- lava and volcano smoke ----------
+  var lavaMats = [], smoke = [], lavaSpots = [];
+  function lavaDisc(x, y, z, r) {
+    lavaSpots.push({ x: x, z: z, r: r, y: y });
+    var m = new THREE.MeshBasicMaterial({ color: 0xff5a14 });
+    var disc = new THREE.Mesh(new THREE.CircleGeometry(r, 28), m);
+    disc.rotation.x = -Math.PI / 2; disc.position.set(x, y, z);
+    scene.add(disc); lavaMats.push(m);
+  }
+  LAKES.forEach(function (l, i) { lavaDisc(l[0], lakeY[i] + 0.6, l[1], l[2]); });
+  var smokeGeo = new THREE.SphereGeometry(1, 8, 6);
+  VOLC.forEach(function (v) {
+    var lv = baseHeight(v.x, v.z, W3) + v.H * 0.0875 + 0.15;
+    lavaDisc(v.x, lv, v.z, v.R * 0.1);
+    addCollider(v.x, v.z, v.R * 0.1 + 0.6, 999, 0);
+    for (var k = 0; k < 7; k++) {
+      var pm = new THREE.Mesh(smokeGeo, new THREE.MeshBasicMaterial({ color: 0x4a403f, transparent: true, opacity: 0, depthWrite: false }));
+      pm.userData = { x: v.x, y: lv + 6, z: v.z, t: k / 7 * 8 };
+      scene.add(pm); smoke.push(pm);
+    }
+  });
+  // ---------- sea (a frame around the land), world-end veil and swim ripple ----------
+  var seaTex = (function () {
+    var c = document.createElement('canvas'); c.width = c.height = 128;
+    var g = c.getContext('2d'); g.fillStyle = '#9fc4d8'; g.fillRect(0, 0, 128, 128);
+    for (var i = 0; i < 260; i++) { g.strokeStyle = 'rgba(255,255,255,' + (0.08 + Math.random() * 0.16).toFixed(2) + ')'; g.lineWidth = 1 + Math.random() * 1.5; var x = Math.random() * 128, y = Math.random() * 128, l = 6 + Math.random() * 14; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + l / 2, y - 2, x + l, y); g.stroke(); }
+    var tx = new THREE.CanvasTexture(c); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(1 / 40, 1 / 40); return tx;
+  })();
+  var seaMat = new THREE.MeshStandardMaterial({ color: 0x2c86b4, map: seaTex, transparent: true, opacity: 0.82, roughness: 0.2, metalness: 0.15, side: THREE.DoubleSide, depthWrite: false });
+  (function () {
+    var L = PLAY + 900, I = PLAY - 76, sh = new THREE.Shape();
+    sh.moveTo(-L, -L); sh.lineTo(L, -L); sh.lineTo(L, L); sh.lineTo(-L, L); sh.lineTo(-L, -L);
+    var hole = new THREE.Path(); hole.moveTo(-I, -I); hole.lineTo(-I, I); hole.lineTo(I, I); hole.lineTo(I, -I); hole.lineTo(-I, -I);
+    sh.holes.push(hole);
+    var sea = new THREE.Mesh(new THREE.ShapeGeometry(sh), seaMat); sea.rotation.x = -Math.PI / 2; sea.position.y = SEA_Y; sea.renderOrder = 2; scene.add(sea);
+    var veilMat = new THREE.MeshBasicMaterial({ color: 0xbfe6ff, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false });
+    var E = PLAY + END_PAD, W2 = 2 * E;
+    [[0, -E, 0], [0, E, 0], [-E, 0, Math.PI / 2], [E, 0, Math.PI / 2]].forEach(function (v) {
+      var m = new THREE.Mesh(new THREE.PlaneGeometry(W2, 90), veilMat); m.position.set(v[0], 20, v[1]); m.rotation.y = v[2]; scene.add(m);
+    });
+  })();
+  var rippleMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
+  var ripple = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 32), rippleMat); ripple.rotation.x = -Math.PI / 2; ripple.visible = false; scene.add(ripple);
+  // ---------- fish (a small school follows the player near the sea) ----------
+  var fish = [], FISH_N = 26;
+  (function () {
+    var bodyG = new THREE.SphereGeometry(0.5, 8, 6), tailG = new THREE.ConeGeometry(0.3, 0.55, 5);
+    var cols = [0xff9a3c, 0xc9d6dd, 0x4aa3d8, 0xf2d24a, 0xe05a5a, 0x7fd6a0];
+    for (var i = 0; i < FISH_N; i++) {
+      var mat = new THREE.MeshLambertMaterial({ color: cols[i % cols.length] }), g = new THREE.Group(), sz = 0.5 + Math.random() * 0.6;
+      var body = new THREE.Mesh(bodyG, mat); body.scale.set(0.32, 0.5, 1.0); g.add(body);
+      var tg = new THREE.Group(); tg.position.z = -0.45;
+      var tail = new THREE.Mesh(tailG, mat); tail.rotation.x = Math.PI / 2; tail.position.z = -0.25; tail.scale.set(0.2, 1, 1); tg.add(tail); g.add(tg);
+      g.scale.setScalar(sz); g.visible = false; scene.add(g);
+      fish.push({ g: g, tg: tg, x: 0, y: 0, z: 0, a: Math.random() * 6.28, sp: 0.8 + Math.random() * 1.2, turn: 0, tt: 0, ph: Math.random() * 6, on: false, w: Math.random() * 2 });
+    }
+  })();
+  function fishSpot(f, cx, cz) {
+    for (var k = 0; k < 8; k++) {
+      var ang = Math.random() * 6.283, rr = 6 + Math.random() * 40, x = cx + Math.cos(ang) * rr, z = cz + Math.sin(ang) * rr;
+      if (edgeDist(x, z) > 60) continue;
+      var h = heightAt(x, z); if (h > SEA_Y - 1.6) continue;
+      var lo = Math.max(h + 0.5, SEA_Y - 9), hi = SEA_Y - 0.6; if (lo >= hi) continue;
+      f.x = x; f.z = z; f.y = lo + Math.random() * (hi - lo); f.on = true; f.g.visible = true; return;
+    }
+    f.on = false; f.g.visible = false;
+  }
+  function updateFish(dt, t) {
+    var cx = px, cz = pz, i;
+    if (edgeDist(cx, cz) > 130) { for (i = 0; i < fish.length; i++) if (fish[i].on) { fish[i].on = false; fish[i].g.visible = false; } return; }
+    for (i = 0; i < fish.length; i++) {
+      var f = fish[i];
+      if (!f.on) { f.w -= dt; if (f.w <= 0) { f.w = 1 + Math.random() * 2; fishSpot(f, cx, cz); } continue; }
+      var dxp = f.x - cx, dzp = f.z - cz, dp = Math.hypot(dxp, dzp);
+      if (dp > 60) { f.on = false; f.g.visible = false; f.w = 0; continue; }
+      f.tt -= dt; if (f.tt <= 0) { f.turn = (Math.random() - 0.5) * 1.4; f.tt = 1 + Math.random() * 2.5; }
+      var spd = f.sp;
+      if (dp < 5 && dp > 0.01) { var away = Math.atan2(dxp, dzp), da = Math.atan2(Math.sin(away - f.a), Math.cos(away - f.a)); f.a += da * Math.min(1, dt * 4); spd *= 2.6; }
+      else f.a += f.turn * dt;
+      var nx = f.x + Math.sin(f.a) * spd * dt, nz = f.z + Math.cos(f.a) * spd * dt;
+      if (edgeDist(nx, nz) > 62 || heightAt(nx, nz) > SEA_Y - 1.2) { f.a += 3.5 * dt; f.turn = 0; } else { f.x = nx; f.z = nz; }
+      var h2 = heightAt(f.x, f.z), lo2 = Math.max(h2 + 0.4, SEA_Y - 9), hi2 = SEA_Y - 0.5;
+      f.y += (Math.max(lo2, Math.min(hi2, f.y + Math.sin(t * 0.7 + f.ph) * 0.2)) - f.y) * Math.min(1, dt * 2);
+      f.ph += dt * (4 + spd * 3);
+      f.g.position.set(f.x, f.y, f.z); f.g.rotation.y = f.a + Math.sin(f.ph) * 0.1; f.tg.rotation.y = Math.sin(f.ph * 2) * 0.55;
+    }
+  }
+  function animateWorld(dt, t) {
+    seaTex.offset.set((t * 0.004) % 1, (t * 0.0025) % 1);
+    updateFish(dt, t);
+    lavaMats.forEach(function (m, i) { m.color.setRGB(1, 0.32 + 0.1 * Math.sin(t * 2 + i), 0.08); });
+    smoke.forEach(function (p) {
+      var u = p.userData; u.t += dt;
+      var k = (u.t % 8) / 8, sz = 3 + k * 10;
+      p.position.set(u.x + k * 8, u.y + k * 55, u.z + k * 4);
+      p.scale.set(sz, sz, sz);
+      p.material.opacity = 0.55 * (1 - k) * Math.min(1, k * 6);
+    });
+  }
+
+  // ---------- scattered props, instanced for speed ----------
+  var scratch = new THREE.Color(), dummyP = new THREE.Object3D();
+  function flat() { return new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true }); }
+  var allSets = [];
+  function makeSet(geo, mat, max) {
+    var m = new THREE.InstancedMesh(geo, mat, max);
+    m.count = 0; m.frustumCulled = false; scene.add(m); allSets.push(m);
+    return m;
+  }
+  function put(m, x, y, z, ry, sx, sy, sz, hex, rz) {
+    var rec = { m: m, i: -1, x: x, y: y, z: z, ry: ry || 0, sx: sx, sy: sy, sz: sz, rz: rz || 0, hex: hex, k: 0.82 + Math.random() * 0.36 };
+    if (CAP) CAP.push(rec); else CUR.recs.push(rec);
+  }
+  function place(rec) {
+    var m = rec.m;
+    if (m.count >= m.instanceMatrix.count) { rec.i = -1; return; }
+    dummyP.position.set(rec.x, rec.y, rec.z); dummyP.rotation.set(0, rec.ry, rec.rz); dummyP.scale.set(rec.sx, rec.sy, rec.sz); dummyP.updateMatrix();
+    var i = m.count++; rec.i = i; m.setMatrixAt(i, dummyP.matrix);
+    if (rec.hex !== undefined) { scratch.setHex(rec.hex).multiplyScalar(rec.k); m.setColorAt(i, scratch); }
+  }
+  function geo(g, ty) { g.translate(0, ty, 0); return g; }
+  var sPineT = makeSet(geo(new THREE.CylinderGeometry(0.28, 0.42, 2.6, 7), 1.3), flat(), 1800);
+  var sPineA = makeSet(geo(new THREE.ConeGeometry(2.1, 2.6, 8), 3.3), flat(), 1000);
+  var sPineB = makeSet(geo(new THREE.ConeGeometry(1.5, 2.4, 8), 5.0), flat(), 1000);
+  var sOakC = makeSet(new THREE.IcosahedronGeometry(1, 1), seasonize(flat(), 'canopy'), 1000);
+  var sBlobC = makeSet(new THREE.IcosahedronGeometry(1, 1), flat(), 400);
+  var sDeadT = makeSet(geo(new THREE.CylinderGeometry(0.16, 0.4, 5, 6), 2.5), flat(), 500);
+  var sDeadB = makeSet(geo(new THREE.CylinderGeometry(0.05, 0.13, 2.2, 5), 1.1), flat(), 1200);
+  var sAcT = makeSet(geo(new THREE.CylinderGeometry(0.2, 0.34, 3.6, 6), 1.8), flat(), 900);
+  var sAcC = makeSet(new THREE.SphereGeometry(1, 10, 6), flat(), 900);
+  // palm frond: a tapered blade along +x that droops toward its tip
+  var sFrond = (function () {
+    var g = new THREE.PlaneGeometry(3.2, 0.7, 6, 1), p = g.attributes.position;
+    for (var i = 0; i < p.count; i++) {
+      var t = (p.getX(i) + 1.6) / 3.2;
+      p.setY(i, p.getY(i) * (1 - 0.85 * t) * (1 + 0.5 * Math.sin(t * 3.14)));
+      p.setZ(i, -0.55 * t * t + (Math.abs(p.getY(i)) < 0.01 ? 0.05 : 0));
+    }
+    g.rotateX(-Math.PI / 2); g.translate(1.6, 0, 0); g.computeVertexNormals();
+    var m = flat(); m.side = THREE.DoubleSide;
+    return makeSet(g, m, 4200);
+  })();
+  var sShS = makeSet(geo(new THREE.CylinderGeometry(0.04, 0.06, 0.45, 6), 0.225), new THREE.MeshBasicMaterial({}), 800);
+  var sShC = makeSet(geo(new THREE.SphereGeometry(0.22, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), 0.45), new THREE.MeshBasicMaterial({}), 800);
+  var sTuft = makeSet(geo(new THREE.ConeGeometry(0.12, 1, 4), 0.5), flat(), 7000);
+  var sRock = makeSet(new THREE.DodecahedronGeometry(1, 0), flat(), 700);
+
+  function nearLava(x, z) {
+    var k;
+    for (k = 0; k < LAKES.length; k++) if (Math.hypot(x - LAKES[k][0], z - LAKES[k][1]) < LAKES[k][2] * 1.9) return true;
+    for (k = 0; k < VOLC.length; k++) if (Math.hypot(x - VOLC[k].x, z - VOLC[k].z) < VOLC[k].R * 0.3) return true;
+    return false;
+  }
+  function rockAt(x, z, y, hex, lo, hi) {
+    var rr = lo + Math.random() * (hi - lo);
+    put(sRock, x, y + rr * 0.35, z, Math.random() * 3, rr * 1.2, rr * 0.85, rr, hex);
+    CUR.cols.push({ x: x, z: z, r: rr, h: rr * 0.8, y: y });
+  }
+  function deadTree(x, z, y, s, hex) {
+    CAP = []; put(sDeadT, x, y, z, 0, s, s, s, hex);
+    var nb = 2 + Math.floor(Math.random() * 2);
+    for (var k = 0; k < nb; k++) put(sDeadB, x, y + (2.4 + Math.random() * 1.8) * s, z, Math.random() * 6.28, s, s, s, hex, (Math.random() < 0.5 ? -1 : 1) * (0.7 + Math.random() * 0.5));
+    treeEnd(x, z, y, 0.5 * s, null, 'wood_dark');
+  }
+  function grassClump(x, y, z, dark) {
+    var cols = dark ? [0x1f3b34, 0x2a4a3a, 0x183028] : [0x4f9a3c, 0x5fae45, 0x3f8a34, 0x6fb84c], n = 3 + Math.floor(Math.random() * 3);
+    for (var gi = 0; gi < n; gi++) {
+      var ts = 0.6 + Math.random() * 0.8;
+      put(sTuft, x + (Math.random() - 0.5) * 0.9, y - 0.05, z + (Math.random() - 0.5) * 0.9, Math.random() * 6.28, ts, ts * (1 + Math.random()), ts, cols[Math.floor(Math.random() * cols.length)], (Math.random() - 0.5) * 0.35);
+    }
+  }
+  var PW = [0, 0, 0, 0];
+  var CS = 64, AR = 3, CAND = 92, cells = {}, felledSet = {}, curCX = 1e9, curCZ = 1e9, STATIC_COL = colliders.length, FORT_TREES = trees.length;
+  var PK_KINDS = [['wood', 'fiber', 'berry', 'herb', 'wood', 'stone'], ['herb', 'stone', 'wood', 'fiber', 'herb'], ['fiber', 'wood', 'berry', 'stone', 'fiber'], ['stone', 'stone', 'wood', 'stone', 'herb']];
+  function cellRng(cx, cz) {
+    var s = (Math.imul(cx * 7 + 1013, 73856093) ^ Math.imul(cz * 13 + 77, 19349663) ^ 0x51ed27) | 0;
+    return function () { s = (s + 0x6D2B79F5) | 0; var t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  // Every 64 m cell is generated from its own seed, so the world is the same on every visit and only nearby cells exist.
+  function genCell(cx, cz) {
+    var cell = { id: cx + ',' + cz, recs: [], cols: [], trees: [], pk: [], pkOn: false }, saved = Math.random, x0 = cx * CS, z0 = cz * CS, R = cellRng(cx, cz);
+    Math.random = R; CUR = cell;
+    for (var pn = 0; pn < CAND; pn++) {
+    var wx = x0 + Math.random() * CS, wz = z0 + Math.random() * CS;
+    if (Math.abs(wx) > PLAY + 15 || Math.abs(wz) > PLAY + 15) continue;
+    if (Math.max(Math.abs(wx), Math.abs(wz)) < FORT_HALF + 3) continue;
+    if (Math.abs(wx) < 5 && wz < 0 && wz > -130) continue; // keep the road north of the gate clear
+    if (nearLava(wx, wz)) continue;
+    biomeWeights(wx, wz, PW);
+    var rb = Math.random(), bi = 0, acc = PW[0];
+    while (bi < 3 && rb > acc) { bi++; acc += PW[bi]; }
+    var wy = heightAt(wx, wz), rr2 = Math.random(), s2 = 0.85 + Math.random() * 0.7, ry2 = Math.random() * 6.28;
+    if (edgeDist(wx, wz) < 140 || wy > 44) continue;
+    if (bi === 0) {
+      if (rr2 < 0.14) {
+        CAP = []; put(sPineT, wx, wy, wz, ry2, s2, s2, s2, 0x6b4a2b);
+        put(sPineA, wx, wy, wz, ry2, s2, s2, s2, 0x2f6b34);
+        put(sPineB, wx, wy, wz, ry2, s2, s2, s2, 0x3a8240);
+        treeEnd(wx, wz, wy, 0.7 * s2);
+      } else if (rr2 < 0.3) {
+        // broadleaf tree: its leaves change colour with the season and fall in winter
+        CAP = []; put(sPineT, wx, wy, wz, ry2, s2, s2, s2, 0x6b4a2b);
+        put(sOakC, wx, wy + 3.5 * s2, wz, ry2, 2.1 * s2, 1.7 * s2, 2.1 * s2, 0x3f8a3a);
+        treeEnd(wx, wz, wy, 0.7 * s2);
+      } else if (rr2 < 0.35) rockAt(wx, wz, wy, 0x8b8a82, 0.5, 1.2);
+      else if (rr2 < 0.58) grassClump(wx, wy, wz, false);
+    } else if (bi === 1) {
+      if (rr2 < 0.24) deadTree(wx, wz, wy, s2 * 1.1, 0x2e2a2f);
+      else if (rr2 < 0.44) {
+        var nm = 3 + Math.floor(Math.random() * 3), glow = Math.random() < 0.5 ? 0x3df2d0 : 0x7a96ff;
+        for (var mi = 0; mi < nm; mi++) {
+          var mx = wx + (Math.random() - 0.5) * 2.4, mz = wz + (Math.random() - 0.5) * 2.4, ms = 1.2 + Math.random() * 2.2, my = heightAt(mx, mz);
+          put(sShS, mx, my, mz, 0, ms, ms, ms, 0xcfeee8);
+          put(sShC, mx, my, mz, 0, ms, ms, ms, glow);
+        }
+      } else if (rr2 < 0.49) rockAt(wx, wz, wy, 0x2a3036, 0.6, 1.8);
+      else if (rr2 < 0.56) {
+        // dark tree: dark trunk and canopy, gives dark wood
+        CAP = []; put(sPineT, wx, wy, wz, ry2, s2, s2, s2, 0x2a2024);
+        put(sBlobC, wx, wy + 3.4 * s2, wz, ry2, 1.9 * s2, 1.5 * s2, 1.9 * s2, 0x2d2a3e);
+        treeEnd(wx, wz, wy, 0.7 * s2, null, 'wood_dark');
+      } else if (rr2 < 0.575) {
+        // white tree: rare, dark biome only, gives white wood
+        CAP = []; put(sPineT, wx, wy, wz, ry2, s2, s2, s2, 0xe6e1d2);
+        put(sBlobC, wx, wy + 3.6 * s2, wz, ry2, 2.0 * s2, 1.6 * s2, 2.0 * s2, 0xf2f4f8);
+        treeEnd(wx, wz, wy, 0.7 * s2, null, 'wood_white');
+      } else if (rr2 < 0.66) grassClump(wx, wy, wz, true);
+    } else if (bi === 2) {
+      if (rr2 < 0.08) {
+        // desert palm: slim leaning trunk and a crown of drooping fronds
+        var lean = (Math.random() - 0.5) * 0.24, PH = 3.6 * 1.9 * s2, tx = wx - PH * Math.sin(lean) * Math.cos(ry2), tz = wz + PH * Math.sin(lean) * Math.sin(ry2), ty = wy + PH * Math.cos(lean);
+        CAP = []; put(sAcT, wx, wy, wz, ry2, 0.7 * s2, 1.9 * s2, 0.7 * s2, 0x8a6a45, lean);
+        put(sAcC, tx, ty, tz, ry2, 0.42 * s2, 0.36 * s2, 0.42 * s2, 0x5a4128);
+        for (var fk = 0; fk < 9; fk++) {
+          var fl = (0.85 + Math.random() * 0.4) * s2;
+          put(sFrond, tx, ty, tz, fk * 0.698 + Math.random() * 0.3, fl, fl, fl, [0x3f8a2e, 0x4d9a36, 0x2f7a2a][fk % 3], -(0.15 + Math.random() * 0.45));
+        }
+        treeEnd(wx, wz, wy, 0.4 * s2);
+      } else if (rr2 < 0.5) {
+        var ts = 0.7 + Math.random() * 0.9;
+        put(sTuft, wx, wy, wz, ry2, ts, ts * (0.8 + Math.random() * 0.8), ts, [0xcdb25a, 0xb89a45, 0xd8c070][Math.floor(Math.random() * 3)], (Math.random() - 0.5) * 0.3);
+      } else if (rr2 < 0.53) rockAt(wx, wz, wy, 0xa88a5a, 0.8, 2.2);
+    } else {
+      if (rr2 < 0.14) rockAt(wx, wz, wy, Math.random() < 0.8 ? 0x2d2623 : 0x4a2418, 0.6, 2.5);
+      else if (rr2 < 0.19) deadTree(wx, wz, wy, s2, 0x1a1412);
+    }
+    }
+    var np = 1 + Math.floor(R() * 2.4);
+    for (var pk = 0; pk < np; pk++) {
+      var qx = x0 + R() * CS, qz = z0 + R() * CS, kr = R(), qr = R();
+      if (edgeDist(qx, qz) < 140 || heightAt(qx, qz) > 44 || Math.max(Math.abs(qx), Math.abs(qz)) < FORT_HALF + 4 || nearLava(qx, qz)) continue;
+      biomeWeights(qx, qz, PW);
+      var qb = 0; for (var qi = 1; qi < 4; qi++) if (PW[qi] > PW[qb]) qb = qi;
+      var ql = PK_KINDS[qb];
+      cell.pk.push({ kind: ql[Math.floor(kr * ql.length)], x: qx, z: qz, qty: 1 + Math.floor(qr * 2) });
+    }
+    Math.random = saved; CUR = null;
+    return cell;
+  }
+  function finalizeFalling() {
+    for (var i = 0; i < treeAct.length; i++) {
+      var t = treeAct[i]; t.act = false;
+      if (t.fall >= 0) addPickup(t.wood, t.wood, 3 + (has('c3') ? 2 : 0), t.x + t.dx * 2, t.z + t.dz * 2, true);
+    }
+    treeAct.length = 0;
+  }
+  function streamAssemble(force, x, z) {
+    var cx = Math.floor(x / CS), cz = Math.floor(z / CS);
+    if (!force && cx === curCX && cz === curCZ) return;
+    curCX = cx; curCZ = cz;
+    finalizeFalling();
+    var i, k, active = {};
+    for (i = 0; i < allSets.length; i++) allSets[i].count = 0;
+    colliders.length = STATIC_COL; trees.length = FORT_TREES;
+    for (var dz = -AR; dz <= AR; dz++) for (var dx = -AR; dx <= AR; dx++) {
+      var key = (cx + dx) + ',' + (cz + dz), cell = cells[key] || (cells[key] = genCell(cx + dx, cz + dz));
+      active[key] = true;
+      for (i = 0; i < cell.recs.length; i++) place(cell.recs[i]);
+      for (i = 0; i < cell.cols.length; i++) colliders.push(cell.cols[i]);
+      for (i = 0; i < cell.trees.length; i++) {
+        var t = cell.trees[i];
+        if (felledSet[t.key]) continue;
+        for (k = 0; k < t.parts.length; k++) place(t.parts[k]);
+        t.col.h = 999; colliders.push(t.col); trees.push(t);
+      }
+    }
+    for (k in cells) { var p = k.split(','); if (Math.abs(+p[0] - cx) > AR + 2 || Math.abs(+p[1] - cz) > AR + 2) delete cells[k]; }
+    for (i = 0; i < allSets.length; i++) { allSets[i].instanceMatrix.needsUpdate = true; if (allSets[i].instanceColor) allSets[i].instanceColor.needsUpdate = true; }
+    syncCellPickups(active);
+  }
+  Math.random = realRandom;
+
+  // ---------- atmosphere: sky, fog and light follow the biome you stand in ----------
+  function hc(h) { return new THREE.Color(h); }
+  var ATMO = [
+    { fog: hc(0xd6e8f3), top: hc(0x4c98dc), sun: hc(0xfff0d2), hs: hc(0xcfe4ff), hg: hc(0x4d6b35), cloud: hc(0xffffff), disc: hc(0xfff6d6), near: 45, far: 150, sunI: 0.9, hemiI: 0.95,
+      fogN: hc(0x0a1020), topN: hc(0x04060f), hsN: hc(0x2c3b66), hgN: hc(0x0c1410), cloudN: hc(0x151b28), nearN: 22, farN: 95, hemiIN: 0.42 },
+    { fog: hc(0x6a181d), top: hc(0x14070b), sun: hc(0x6f86d8), hs: hc(0x3d4f82), hg: hc(0x121a1e), cloud: hc(0x1b2430), disc: hc(0xaec0ee), near: 6, far: 70, sunI: 0.3, hemiI: 0.75,
+      fogN: hc(0x34090f), topN: hc(0x0c0306), hsN: hc(0x24305a), hgN: hc(0x0a0f12), cloudN: hc(0x0b0f16), nearN: 5, farN: 55, hemiIN: 0.5 },
+    { fog: hc(0xf0d8a4), top: hc(0x5aa9ee), sun: hc(0xffe0a0), hs: hc(0xe8e1c8), hg: hc(0x8a7440), cloud: hc(0xfff3da), disc: hc(0xfff0b0), near: 50, far: 160, sunI: 1.15, hemiI: 1.0,
+      fogN: hc(0x141a2a), topN: hc(0x05070f), hsN: hc(0x2e3a60), hgN: hc(0x14120e), cloudN: hc(0x161b28), nearN: 25, farN: 105, hemiIN: 0.45 },
+    { fog: hc(0x5d3c33), top: hc(0x2b1d1f), sun: hc(0xff9a60), hs: hc(0x9a6a5a), hg: hc(0x2a1a14), cloud: hc(0x4a3a3a), disc: hc(0xff7a40), near: 18, far: 115, sunI: 0.8, hemiI: 0.75,
+      fogN: hc(0x2a1210), topN: hc(0x0a0506), hsN: hc(0x4a2a30), hgN: hc(0x1a0a08), cloudN: hc(0x2a1a1a), nearN: 12, farN: 85, hemiIN: 0.45 }
+  ];
+  var AW = [1, 0, 0, 0];
+  var WARM = hc(0xe8955a), ORANGE = hc(0xff9a50), SNOWFOG = hc(0xdfe7ef), AUTFOG = hc(0xe3c79d);
+
+  // ---------- days: a full day and night lasts CYCLE seconds of play ----------
+  // A day lasts 7 minutes. Each season lasts DPS days, so one year is DPS * 4 days.
+  var CYCLE = 420, DPS = 1, START = 0.3, clockT = 0, tod = { day: 1, tw: 0 }, sw = [1, 0, 0, 0], curSeason = 0, shownSeason = -1;
+  var SEASON_NAMES = ['الربيع', 'الصيف', 'الخريف', 'الشتاء'];
+  // tod.day: 0 at night, 1 in full daylight. tod.tw: peaks at sunrise and sunset.
+  function updateTime() {
+    // season weights: the game starts mid-spring and seasons blend through the night
+    var days = clockT / CYCLE + START - 0.25, xs = (days / DPS + 0.25) % 4, i, sum = 0, best = 0;
+    for (i = 0; i < 4; i++) { var dd = Math.abs(xs - (i + 0.5)); dd = Math.min(dd, 4 - dd); sw[i] = sstep(0.75, 0.25, dd); sum += sw[i]; }
+    for (i = 0; i < 4; i++) { sw[i] /= sum; if (sw[i] > sw[best]) best = i; }
+    curSeason = best;
+    SU.uSpr.value = sw[0]; SU.uSum.value = sw[1]; SU.uAut.value = sw[2]; SU.uWin.value = sw[3];
+
+    var ph = clockT / CYCLE + START, ang = (ph - 0.25) * Math.PI * 2;
+    sunDir.set(Math.cos(ang), Math.sin(ang), 0.3).normalize();
+    var off = 0.12 * (sw[3] - sw[1]); // winter days are shorter, summer days longer
+    tod.day = sstep(-0.14 + off, 0.28 + off, sunDir.y);
+    tod.tw = Math.exp(-Math.pow(sunDir.y / 0.2, 2));
+  }
+  // the dark biome stays gloomy even at noon, so it only partly follows the sun
+  function lit(i) { return i === 1 ? 0.3 + 0.4 * tod.day : tod.day; }
+  function mixDay(dk, nk, target) {
+    var r = 0, g = 0, b = 0;
+    for (var i = 0; i < 4; i++) {
+      var d = ATMO[i][dk], n = nk ? ATMO[i][nk] : d, l = lit(i), w = AW[i];
+      r += (n.r + (d.r - n.r) * l) * w; g += (n.g + (d.g - n.g) * l) * w; b += (n.b + (d.b - n.b) * l) * w;
+    }
+    target.setRGB(r, g, b);
+  }
+  function mixNum(dk, nk) {
+    var v = 0;
+    for (var i = 0; i < 4; i++) { var d = ATMO[i][dk], n = nk ? ATMO[i][nk] : d, l = lit(i); v += (n + (d - n) * l) * AW[i]; }
+    return v;
+  }
+  function updateAtmosphere() {
+    biomeWeights(camera.position.x, camera.position.z, AW);
+    mixDay('fog', 'fogN', scene.fog.color);
+    scene.fog.color.lerp(WARM, tod.tw * 0.5 * (1 - AW[1]));
+    scene.fog.color.lerp(SNOWFOG, SU.uWin.value * 0.5 * tod.day * (AW[0] + AW[2] * 0.4));
+    scene.fog.color.lerp(AUTFOG, SU.uAut.value * 0.3 * tod.day * AW[0]);
+    scene.background.copy(scene.fog.color);
+    scene.fog.near = mixNum('near', 'nearN'); scene.fog.far = mixNum('far', 'farN');
+    var u = sky.material.uniforms;
+    u.bottom.value.copy(scene.fog.color);
+    mixDay('top', 'topN', u.top.value);
+    u.sunDir.value.copy(sunDir);
+    u.glowAmt.value = tod.tw * 0.85 * (1 - AW[1] * 0.8);
+    mixDay('sun', null, sun.color); sun.color.lerp(ORANGE, tod.tw * 0.5);
+    sun.intensity = mixNum('sunI') * tod.day * (1 + 0.1 * SU.uSum.value - 0.2 * SU.uWin.value);
+    sun.position.copy(sunDir).multiplyScalar(100);
+    moonLight.intensity = 0.35 * (1 - tod.day);
+    moonLight.position.copy(sunDir).multiplyScalar(-100);
+    mixDay('hs', 'hsN', hemi.color); mixDay('hg', 'hgN', hemi.groundColor);
+    hemi.intensity = mixNum('hemiI', 'hemiIN');
+    mixDay('cloud', 'cloudN', cloudMat.color);
+    mixDay('disc', null, sunDisc.material.color); sunDisc.material.color.lerp(ORANGE, tod.tw * 0.5);
+    stars.material.opacity = Math.min(1, (1 - tod.day) * 1.15 + AW[1] * (0.45 + 0.55 * (1 - tod.day)));
+  }
+
+  // ---------- state ----------
+  var keys = {}, yaw = 0, pitch = 0, px = 0, pz = 0, py = EYE, vy = 0, onGround = true;
+  var mv = { x: 0, y: 0 }, running = false, started = false, panel = null, bob = 0, locked = false, lockFailed = false, rotating = false;
+  var audio = null, shake = 0, kick = 0, fovCur = 75, lastIn = { x: 0, z: 0 };
+  var isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+  if (isTouch) document.body.classList.add('touch');
+  var PAUSE_TEXT = 'اللعبة متوقفة. اضغط متابعة للعودة إلى العالم.';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var toast = $('toast'), wrap = $('card-wrap'), elCoords = $('coords'), elDay = $('day'), elClock = $('clock'), elSeason = $('season');
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+  function tone(f0, f1, d, vol, type) {
+    try {
+      if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
+      var o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime;
+      o.type = type || 'sine';
+      o.frequency.setValueAtTime(f0, t);
+      if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + d);
+      g.gain.setValueAtTime(vol || 0.12, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      o.connect(g); g.connect(audio.destination); o.start(); o.stop(t + d);
+    } catch (e) {}
+  }
+  function beep(f, d) { tone(f, f, d, 0.12, 'sine'); }
+  var toastT = 0;
+  function say(t) { toast.textContent = t; toast.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(function () { toast.classList.remove('on'); }, 1100); }
+
+  // ---------- vitals: strength (القوة), mana, food. Values are 0 to 100 and drawn as bars ----------
+  var BAR_EL = { hp: $('bar-hp'), mp: $('bar-mp'), fd: $('bar-fd') }, stats = { hp: 100, mp: 100, fd: 100 };
+  function setBar(k, v) {
+    v = clamp(v, 0, 100); stats[k] = v;
+    BAR_EL[k].style.setProperty('--v', String(v / 100));
+    BAR_EL[k].parentNode.parentNode.setAttribute('aria-valuenow', String(Math.round(v)));
+  }
+
+  // ---------- control guide, shown on the start card and in the book ----------
+  var CONTROLS = [
+    ['W A S D', 'العصا على اليسار', 'الحركة'],
+    ['الفأرة', 'السحب على اليمين', 'النظر حولك'],
+    ['زر الفأرة الأيسر أو F', 'زر «ضرب»', 'الضرب. اضغط مطولًا ثم اترك لضربة قوية. إن حملت طعامًا في يدك فالضغط يأكله'],
+    ['Shift', 'زر «داش»', 'اندفاع سريع'],
+    ['Space', 'زر «قفز»', 'القفز'],
+    ['C', 'زر «غوص»', 'الغوص تحت الماء أثناء السباحة (Space للصعود)'],
+    ['B', 'زر «كتاب»', 'فتح الكتاب'],
+    ['I', 'زر «الحقيبة»', 'فتح الحقيبة'],
+    ['K', 'زر «المهارات»', 'فتح شجرة المهارات'],
+    ['E', 'الحقيبة ← أكل', 'أكل ما تحمله في اليد 1'],
+    ['M', 'زر الخريطة', 'فتح الخريطة'],
+    ['Esc أو P', 'زر الإيقاف', 'إيقاف اللعبة']
+  ];
+  function fillKeys(dl) {
+    dl.innerHTML = '';
+    CONTROLS.forEach(function (c) {
+      var dt = document.createElement('dt'), dd = document.createElement('dd');
+      dt.textContent = isTouch ? c[1] : c[0]; dd.textContent = c[2];
+      dl.appendChild(dt); dl.appendChild(dd);
+    });
+  }
+  fillKeys($('keys'));
+
+  // ---------- experience and the skill tree ----------
+  var SK = [
+    { id: 's1', b: 'surv', t: 'معدة صبورة', d: 'يقلّ استهلاك الطعام بنسبة 30%.', c: 1 },
+    { id: 's2', b: 'surv', t: 'قدمان رشيقتان', d: 'المسافة الآمنة للسقوط تصير 9 أمتار بدل 6، ويقلّ ضرر السقوط للنصف.', c: 1 },
+    { id: 's3', b: 'surv', t: 'جلد مقاوم للنار', d: 'ضرر الحرق للنصف ويخمد اللهب أسرع.', c: 2 },
+    { id: 's4', b: 'surv', t: 'عافية', d: 'يتضاعف الشفاء البطيء للقوة وأنت شبعان.', c: 2 },
+    { id: 'm1', b: 'move', t: 'ساقان قويتان', d: 'سرعة المشي أعلى بنحو 10%.', c: 1 },
+    { id: 'm2', b: 'move', t: 'سبّاح ماهر', d: 'تسبح بـ 85% من سرعة المشي بدل 55%.', c: 1 },
+    { id: 'm3', b: 'move', t: 'اندفاع خاطف', d: 'انتظار «داش» يصير 0.55 ثانية بدل 0.9.', c: 2 },
+    { id: 'm4', b: 'move', t: 'ضربة الجبّار', d: 'ضرباتك تقطع الأشجار أسرع بنسبة 60%.', c: 2 },
+    { id: 'c1', b: 'craft', t: 'يد جامعة', d: 'فرصة 50% لقطعة إضافية عند جمع أي مورد.', c: 1 },
+    { id: 'c2', b: 'craft', t: 'حقيبة واسعة', d: 'تتسع الحقيبة لـ 18 خانة بدل 12.', c: 1 },
+    { id: 'c3', b: 'craft', t: 'حطّاب', d: 'كل شجرة تسقط تعطيك قطعتي خشب إضافيتين.', c: 2 },
+    { id: 'c4', b: 'craft', t: 'حرفي ماهر', d: 'تحتاج في الصناعة قطعة أقل من كل مكوّن (حدّ أدنى 1).', c: 2 }
+  ];
+  var SK_BR = [['surv', 'البقاء'], ['move', 'الحركة والقتال'], ['craft', 'الحرفة والجمع']];
+  var prog = { xp: 0, lvl: 1, pts: 2, sk: {} };
+  function has(id) { return !!prog.sk[id]; }
+  function xpNeed(l) { return 50 + 35 * (l - 1); }
+  function skBtn() { $('btn-skills').classList.toggle('has', prog.pts > 0); }
+  function applySkills() { BAG_SLOTS = has('c2') ? 18 : 12; }
+  function gainXp(n) {
+    prog.xp += n;
+    while (prog.xp >= xpNeed(prog.lvl)) { prog.xp -= xpNeed(prog.lvl); prog.lvl++; prog.pts++; tone(520, 1040, 0.35, 0.14, 'triangle'); say('المستوى ' + prog.lvl + ' · نقطة مهارة جديدة'); }
+    skBtn();
+  }
+  function renderSkills() {
+    $('sk-info').textContent = 'المستوى ' + prog.lvl + ' · الخبرة ' + Math.floor(prog.xp) + ' / ' + xpNeed(prog.lvl) + ' · نقاط المهارة: ' + prog.pts;
+    $('sk-xp').style.width = Math.min(100, prog.xp / xpNeed(prog.lvl) * 100) + '%';
+    var box = $('sk-tree'); box.innerHTML = '';
+    SK_BR.forEach(function (br) {
+      var col = document.createElement('div'), h = document.createElement('h3'); col.className = 'sk-col'; h.textContent = br[1]; col.appendChild(h);
+      var list = SK.filter(function (k) { return k.b === br[0]; });
+      list.forEach(function (k, i) {
+        var learned = has(k.id), pre = i === 0 || has(list[i - 1].id), can = !learned && pre && prog.pts >= k.c;
+        var el = document.createElement('div'); el.className = 'sk' + (learned ? ' learned' : (pre ? '' : ' locked'));
+        var t = document.createElement('b'), d = document.createElement('p'), c = document.createElement('div');
+        t.textContent = k.t; d.textContent = k.d; c.className = 'c'; c.textContent = learned ? 'تم تعلّمها' : (pre ? 'التكلفة: ' + k.c + (k.c === 1 ? ' نقطة' : ' نقطتان') : 'تحتاج المهارة التي قبلها');
+        el.appendChild(t); el.appendChild(d); el.appendChild(c);
+        if (!learned && pre) {
+          var b = document.createElement('button'); b.type = 'button'; b.className = 'use'; b.textContent = 'تعلّم'; b.disabled = !can;
+          b.addEventListener('click', function () { if (!can) return; prog.sk[k.id] = true; prog.pts -= k.c; applySkills(); skBtn(); tone(420, 900, 0.25, 0.14, 'triangle'); say('تعلّمت: ' + k.t); saveNow(); renderSkills(); });
+          el.appendChild(b);
+        }
+        col.appendChild(el);
+      });
+      box.appendChild(col);
+    });
+  }
+
+  // ---------- survival: hunger, burning in lava, falls and death ----------
+  var FOOD = { berry: 14, herb: 6 };
+  var dead = false, burnT = 0, peakY = 0, hurtV = 0, hungerT = 0, lastDmg = 'hunger';
+  var hurtEl = $('hurt'), deathEl = $('death');
+  var WHY = { burn: 'احترقت في الحمم.', fall: 'سقطت من علوٍّ شاهق.', hunger: 'متّ جوعًا.', drown: 'غرقت تحت الماء.' };
+  var airEl = $('air'), airB = $('air-b'), uwEl = $('uwtint'), diveBtn = $('b-dive');
+  function damage(n, why) {
+    if (dead || n <= 0) return;
+    lastDmg = why; setBar('hp', stats.hp - n); hurtV = Math.min(1, hurtV + n / 28);
+    if (stats.hp <= 0) die(why);
+  }
+  function die(why) {
+    dead = true; running = false; releaseInputs(); exitLock(); hideBook(); burnT = 0;
+    tone(300, 40, 0.9, 0.22, 'sawtooth');
+    $('death-why').textContent = WHY[why] || 'مِتَّ.';
+    deathEl.hidden = false; hurtEl.style.opacity = 0;
+  }
+  function respawn() {
+    dead = false; burnT = 0; hurtV = 0; swimming = false; swimK = 0;
+    setBar('hp', 100); setBar('fd', Math.max(stats.fd, 60)); setBar('mp', 100);
+    px = 0; pz = 0; py = heightAt(0, 0) + EYE; vy = 0; onGround = true; peakY = py; pitch = 0; air = 100; underK = 0; uwEl.style.opacity = 0;
+    deathEl.hidden = true; running = true; requestLock(); checkRotate(); saveNow();
+  }
+  $('respawn').addEventListener('click', respawn);
+  function eatItem(id) {
+    var n = FOOD[id]; if (!n) return false;
+    if (stats.fd >= 99) { say('أنت شبعان'); return false; }
+    takeOne(id, 1); setBar('fd', stats.fd + n); tone(300, 520, 0.12, 0.12, 'triangle');
+    say('أكلت ' + ITEMS[id].n); gainXp(3); selSlot = -1; saveNow(); return true;
+  }
+  function eatHeld() { if (hbSel >= 0 && bag[hbSel] && FOOD[bag[hbSel].id]) eatItem(bag[hbSel].id); else say('لا تحمل طعامًا في اليد 1'); }
+  function survive(dt) {
+    // breath: the head under the surface uses up air (30 s), the surface refills it
+    var under = swimming && py < SEA_Y - 0.1;
+    air = under ? Math.max(0, air - dt * (100 / 30)) : Math.min(100, air + dt * 70);
+    if (under && air <= 0) damage(7 * dt, 'drown');
+    var showAir = air < 99.5; if (airEl.hidden === showAir) airEl.hidden = !showAir;
+    airB.style.transform = 'scaleX(' + (air / 100).toFixed(3) + ')';
+    underK += ((swimming && py < SEA_Y - 0.05 ? 1 : 0) - underK) * Math.min(1, dt * 8);
+    uwEl.style.opacity = underK.toFixed(2);
+    if (diveBtn.hidden === swimming) diveBtn.hidden = !swimming;
+    // hunger
+    hungerT -= dt;
+    setBar('fd', stats.fd - dt * (100 / 720) * (has('s1') ? 0.7 : 1));
+    if (stats.fd <= 0) damage(1.6 * dt, 'hunger');
+    else if (stats.fd < 20 && hungerT <= 0) { hungerT = 40; say('أنت جائع، كُل شيئًا'); }
+    // lava
+    var inLava = false;
+    for (var li = 0; li < lavaSpots.length; li++) { var ls = lavaSpots[li]; if (Math.hypot(px - ls.x, pz - ls.z) < ls.r * 0.97 && py - EYE < ls.y + 2.5) { inLava = true; break; } }
+    var fireK = has('s3') ? 0.5 : 1;
+    if (swimming) burnT = 0;
+    if (inLava) { if (burnT <= 0) tone(160, 60, 0.4, 0.14, 'sawtooth'); burnT = 4 * fireK; damage(26 * fireK * dt, 'burn'); }
+    else if (burnT > 0) { burnT -= dt; damage(7 * fireK * dt, 'burn'); }
+    // slow healing when well fed
+    if (!dead && stats.fd > 50 && burnT <= 0 && stats.hp < 100) setBar('hp', stats.hp + dt * 1.2 * (has('s4') ? 2 : 1));
+    // screen
+    hurtV = Math.max(0, hurtV - dt * 1.6);
+    var o = hurtV * 0.9;
+    if (burnT > 0) { hurtEl.className = 'burn'; o = Math.max(o, 0.45 + 0.2 * Math.sin(performance.now() * 0.02)); }
+    else { hurtEl.className = ''; if (stats.hp < 25) o = Math.max(o, 0.3 + 0.15 * Math.sin(performance.now() * 0.006)); }
+    hurtEl.style.opacity = o.toFixed(2);
+  }
+  function landed(drop) {
+    var safe = has('s2') ? 9 : 6;
+    if (drop > 3) { tone(120, 45, 0.25, 0.2, 'square'); shake = Math.max(shake, Math.min(0.25, drop * 0.01)); }
+    if (drop > safe) damage((drop - safe) * 5 * (has('s2') ? 0.5 : 1), 'fall');
+  }
+  function resetSurvival() {
+    prog = { xp: 0, lvl: 1, pts: 2, sk: {} }; applySkills(); skBtn();
+    dead = false; burnT = 0; hurtV = 0; deathEl.hidden = true; hurtEl.style.opacity = 0;
+    setBar('hp', 100); setBar('mp', 100); setBar('fd', 100);
+  }
+
+  function resetGame() { px = 0; pz = 0; py = EYE; vy = 0; yaw = 0; pitch = 0; clockT = 0; }
+
+  // ---------- attack: tap for a quick punch, hold until the ring fills for a strong one ----------
+  function chargeT() { var w = WEAPONS[toolId()]; return w ? w.ch : 0.8; }
+  var atk = { src: {}, held: false, t: 0, active: false, dur: 0.3, swingT: 0, kind: 1, hand: 0, hitDone: true, cd: 0, charge: 0, full: false };
+  var pose = { c: 0 }, chargeEl = $('charge'), chargeShown = false, fxList = [];
+  function anyAtkSrc() { for (var k in atk.src) if (atk.src[k]) return true; return false; }
+  var eatFoodId = null, eatCd = 0;
+  function foodInHand() {
+    var a = hbSel >= 0 && bag[hbSel] ? bag[hbSel].id : null;
+    if (a && FOOD[a]) return a;
+    return offId && FOOD[offId] && countOf(offId) ? offId : null;
+  }
+  function attackDown(src) {
+    if (!running) return;
+    var fid = foodInHand();
+    if (fid && stats.fd < 99) {
+      if (eatCd <= 0) { eatCd = 0.35; eatFoodId = fid; eatAnim = 1; eatItem(fid); }
+      return;
+    }
+    atk.src[src] = true;
+    if (!atk.held && !atk.active && atk.cd <= 0) { atk.held = true; atk.t = 0; atk.full = false; }
+  }
+  function attackUp(src) {
+    atk.src[src] = false;
+    if (atk.held && !anyAtkSrc()) { atk.held = false; startSwing(atk.t >= chargeT() ? 2 : 1); }
+  }
+  function attackCancel() { atk.src = {}; atk.held = false; atk.t = 0; }
+  function startSwing(kind) {
+    atk.kind = kind; atk.active = true; atk.swingT = 0; atk.hitDone = false;
+    var w = WEAPONS[toolId()], bd = w ? w.dur : 0.3;
+    atk.dur = kind === 2 ? bd + 0.25 : bd; atk.cd = atk.dur + 0.05;
+    if (kind === 1) atk.hand = 1 - atk.hand;
+    if (kind === 2) {
+      tone(200, 80, 0.32, 0.18, 'triangle');
+      if (w && w.base === 'spear' && dash.t <= 0) { dash.vx = -Math.sin(yaw) * 15; dash.vz = -Math.cos(yaw) * 15; dash.t = 0.16; }
+      if (heldId[0] === 'torch' || heldId[1] === 'torch') torchFlare = 1;
+    } else tone(380, 170, 0.13, 0.1, 'triangle');
+  }
+
+  var ringGeo = new THREE.RingGeometry(0.5, 0.75, 40);
+  function spawnRing(x, z) {
+    var m = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffb347, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+    m.rotation.x = -Math.PI / 2; m.position.set(x, heightAt(x, z) + 0.08, z);
+    scene.add(m); fxList.push({ m: m, t: 0, d: 0.5 });
+  }
+  function updateFx(dt) {
+    for (var i = fxList.length - 1; i >= 0; i--) {
+      var f = fxList[i]; f.t += dt;
+      var k = f.t / f.d; f.m.scale.setScalar(1 + k * 4.5); f.m.material.opacity = 0.85 * (1 - k);
+      if (k >= 1) { scene.remove(f.m); f.m.material.dispose(); fxList.splice(i, 1); }
+    }
+  }
+
+  // targets that react to hits (the training dummy inside the fort)
+  var targets = [{
+    x: DUMMY.x, z: DUMMY.z, r: 0.55, y: 0,
+    hit: function (kind, fxv, fzv) {
+      dummyS.dx = fxv; dummyS.dz = fzv;
+      dummyS.v = kind === 2 ? 7 : 3; dummyS.flash = kind === 2 ? 1 : 0.6;
+      if (kind === 2) tone(170, 60, 0.3, 0.26, 'square'); else tone(250, 110, 0.16, 0.18, 'square');
+    }
+  }];
+  function updateDummy(dt) {
+    var s = dummyS;
+    s.v += (-60 * s.a - 5 * s.v) * dt; s.a = clamp(s.a + s.v * dt, -1.1, 1.1);
+    dummyG.rotation.x = s.a * s.dz; dummyG.rotation.z = -s.a * s.dx;
+    s.flash = Math.max(0, s.flash - dt * 4);
+    for (var i = 0; i < dummyMats.length; i++) dummyMats[i].emissive.setRGB(s.flash * 0.7, s.flash * 0.45, s.flash * 0.1);
+  }
+  // ---------- breaking trees: hit them again and again until they fall ----------
+  var treeAct = [], tq = new THREE.Quaternion(), tq2 = new THREE.Quaternion(), tv = new THREE.Vector3(), tAxis = new THREE.Vector3(), tEul = new THREE.Euler();
+  var TREE_HP = 6, thpEl = $('thp'), thpFill = thpEl.firstElementChild, thpT = 0;
+  function applyTilt(t, ang) {
+    tAxis.set(t.dz, 0, -t.dx);
+    if (t.grp) { t.grp.quaternion.setFromAxisAngle(tAxis, ang); return; }
+    tq.setFromAxisAngle(tAxis, ang);
+    for (var i = 0; i < t.parts.length; i++) {
+      var q = t.parts[i]; if (q.i < 0) continue;
+      tv.set(q.x - t.x, q.y - t.y, q.z - t.z).applyQuaternion(tq);
+      dummyP.position.set(t.x + tv.x, t.y + tv.y, t.z + tv.z);
+      tEul.set(0, q.ry, q.rz); tq2.setFromEuler(tEul).premultiply(tq); dummyP.quaternion.copy(tq2);
+      dummyP.scale.set(q.sx, q.sy, q.sz); dummyP.updateMatrix();
+      q.m.setMatrixAt(q.i, dummyP.matrix); q.m.instanceMatrix.needsUpdate = true;
+    }
+  }
+  function hideTree(t) {
+    if (t.grp) { t.grp.visible = false; return; }
+    for (var i = 0; i < t.parts.length; i++) {
+      var q = t.parts[i]; if (q.i < 0) continue; dummyP.position.set(q.x, q.y, q.z); dummyP.quaternion.set(0, 0, 0, 1); dummyP.scale.set(0, 0, 0); dummyP.updateMatrix();
+      q.m.setMatrixAt(q.i, dummyP.matrix); q.m.instanceMatrix.needsUpdate = true;
+    }
+  }
+  function restoreTree(t) {
+    t.dead = false; t.fall = -1; t.sh = 0; t.hp = TREE_HP; t.act = false; t.col.h = 999;
+    if (t.grp) { t.grp.visible = true; t.grp.quaternion.set(0, 0, 0, 1); } else applyTilt(t, 0);
+  }
+  function killTreeNow(t) { t.dead = true; t.col.h = -999; hideTree(t); }
+  function showTreeBar(f) {
+    thpEl.hidden = false; thpFill.style.transform = 'scaleX(' + Math.max(0, f).toFixed(3) + ')'; clearTimeout(thpT);
+    thpT = setTimeout(function () { thpEl.hidden = true; }, 1500);
+  }
+  function hitTree(kind, reach, fxv, fzv, cone, maxN) {
+    var cand = [], cn = cone === undefined ? 0.55 : cone;
+    for (var i = 0; i < trees.length; i++) {
+      var t = trees[i]; if (t.dead || t.fall >= 0) continue;
+      var vx = t.x - px, vz = t.z - pz, d = Math.hypot(vx, vz);
+      if (d < reach + t.r && d > 0.01 && (vx * fxv + vz * fzv) / d > cn && Math.abs(py - EYE - t.y) < 3) cand.push({ t: t, d: d });
+    }
+    if (!cand.length) return false;
+    cand.sort(function (a, b) { return a.d - b.d; });
+    for (var j = 0; j < cand.length && j < (maxN || 1); j++) chopTree(cand[j].t, kind, fxv, fzv);
+    return true;
+  }
+  function chopTree(best, kind, fxv, fzv) {
+    var w = WEAPONS[toolId()];
+    best.hp -= (kind === 2 ? 3 : 1) * (has('m4') ? 1.6 : 1) * toolMul() * (kind === 2 && w && w.base === 'axe' ? 1.5 : 1); best.dx = fxv; best.dz = fzv; best.sh = 0.3;
+    if (!best.act) { best.act = true; treeAct.push(best); }
+    tone(kind === 2 ? 110 : 150, 70, 0.15, 0.24, 'square'); shake = Math.max(shake, 0.04);
+    showTreeBar(best.hp / TREE_HP);
+    if (best.hp <= 0) { best.fall = 0; best.dead = true; best.col.h = -999; if (best.key) felledSet[best.key] = true; tone(120, 35, 0.55, 0.26, 'sawtooth'); gainXp(8); }
+  }
+  function updateTrees(dt) {
+    for (var i = treeAct.length - 1; i >= 0; i--) {
+      var t = treeAct[i];
+      if (t.fall >= 0) {
+        t.fall += dt / 0.9; var k = Math.min(1, t.fall); applyTilt(t, k * k * 1.5);
+        if (t.fall >= 1) {
+          hideTree(t); t.act = false; treeAct.splice(i, 1);
+          addPickup(t.wood, t.wood, 3 + Math.floor(Math.random() * 2) + (has('c3') ? 2 : 0), t.x + t.dx * 2, t.z + t.dz * 2, true);
+          say('+ خشب على الأرض'); saveNow();
+        }
+      } else {
+        t.sh -= dt; applyTilt(t, t.sh > 0 ? 0.05 * Math.sin(t.sh * 50) * (t.sh / 0.3) : 0);
+        if (t.sh <= 0) { t.act = false; treeAct.splice(i, 1); }
+      }
+    }
+  }
+
+  function toolId() { return WEAPONS[heldId[0]] ? heldId[0] : (WEAPONS[heldId[1]] ? heldId[1] : null); }
+  function toolMul() { var w = WEAPONS[toolId()]; return w ? w.tree : 1; }
+  function performHit(kind) {
+    var w = WEAPONS[toolId()], base = w ? w.base : null;
+    var reach = (kind === 2 ? 3.6 : 2.7) + (w ? w.reach : 0), fxv = -Math.sin(yaw), fzv = -Math.cos(yaw), hit = false;
+    var cone = 0.62, tcone = 0.55, maxN = 1;
+    if (kind === 2 && base === 'axe') { cone = 0.05; tcone = 0.05; maxN = 4; reach += 0.4; }
+    else if (kind === 2 && base === 'spear') { cone = 0.9; tcone = 0.88; reach += 2.4; maxN = 2; }
+    for (var i = 0; i < targets.length; i++) {
+      var t = targets[i], vx = t.x - px, vz = t.z - pz, d = Math.hypot(vx, vz);
+      if (d < reach + t.r && d > 0.01 && (vx * fxv + vz * fzv) / d > cone && Math.abs(py - EYE - t.y) < 2.2) { t.hit(kind, fxv, fzv); hit = true; }
+    }
+    hitTree(kind, reach, fxv, fzv, tcone, maxN);
+    if (kind === 2) {
+      if (base === 'axe') { for (var a = -1; a <= 1; a++) spawnRing(px + (fxv * Math.cos(a * 0.9) - fzv * Math.sin(a * 0.9)) * 2.4, pz + (fxv * Math.sin(a * 0.9) + fzv * Math.cos(a * 0.9)) * 2.4); }
+      else if (base === 'spear') spawnRing(px + fxv * (reach - 0.5), pz + fzv * (reach - 0.5));
+      else spawnRing(px + fxv * 2.6, pz + fzv * 2.6);
+      shake = base === 'axe' ? 0.18 : 0.12; kick = 0.05;
+    }
+    if (hit) tutEvent(kind === 2 ? 'strong' : 'hit');
+  }
+
+  // ---------- dash ----------
+  var dash = { t: 0, cd: 0, vx: 0, vz: 0 }, DASH_T = 0.22, DASH_SPEED = 24, dashBtn = $('b-dash'), dashCool = false;
+  function doDash() {
+    if (!running || dash.t > 0 || dash.cd > 0) return;
+    var dx = lastIn.x, dz = lastIn.z, l = Math.hypot(dx, dz);
+    if (l < 0.1) { dx = -Math.sin(yaw); dz = -Math.cos(yaw); l = 1; }
+    dash.vx = dx / l * DASH_SPEED; dash.vz = dz / l * DASH_SPEED; dash.t = DASH_T; dash.cd = has('m3') ? 0.55 : 0.9;
+    tone(430, 150, 0.22, 0.14, 'sawtooth');
+    tutEvent('dash');
+  }
+
+  // ---------- tutorial inside the fort ----------
+  var tut = { i: -1, done: false, acc: 0, steps: [] };
+  var gateBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 46, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0.22, depthWrite: false, fog: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+  gateBeam.position.set(0, 23, -(BOUND - 7)); gateBeam.visible = false; scene.add(gateBeam);
+  function K(d, t) { return isTouch ? t : d; }
+  function buildTut() {
+    tut.steps = [
+      { id: 'look', title: 'انظر حولك', need: 1.6, text: K('حرّك الفأرة لتدير الكاميرا يمينًا ويسارًا.', 'اسحب بإصبعك على الجهة اليمنى من الشاشة لتدير الكاميرا.') },
+      { id: 'move', title: 'تحرّك', need: 8, text: K('اضغط W A S D للمشي داخل الساحة.', 'حرّك العصا في الجهة اليسرى من الشاشة للمشي.') },
+      { id: 'jump', title: 'اقفز', text: K('اضغط Space للقفز.', 'اضغط زر «قفز».') },
+      { id: 'dash', title: 'داش', text: K('اضغط Shift للاندفاع بسرعة في اتجاه حركتك.', 'اضغط زر «داش» للاندفاع بسرعة.') },
+      { id: 'hit', title: 'اضرب', text: K('اقترب من الدمية الخشبية واضغط زر الفأرة الأيسر أو F.', 'اقترب من الدمية الخشبية واضغط زر «ضرب».') },
+      { id: 'strong', title: 'ضربة قوية', text: K('اضغط مطولًا حتى تكتمل الحلقة حول المؤشر، ثم اترك الزر وأنت أمام الدمية.', 'اضغط مطولًا على «ضرب» حتى تكتمل الحلقة، ثم اترك وأنت أمام الدمية.') },
+      { id: 'book', title: 'الكتاب', text: K('اضغط B لفتح الكتاب، ثم اضغط B مرة أخرى لإغلاقه.', 'اضغط زر «كتاب» ثم أغلقه.') },
+      { id: 'map', title: 'الخريطة', text: K('اضغط M لفتح الخريطة، ثم اضغط M مرة أخرى لإغلاقها.', 'اضغط زر الخريطة أعلى الشاشة ثم أغلقها.') },
+      { id: 'craft', title: 'اصنع من الحقيبة', text: K('افتح الحقيبة (I)، أضف الليف إلى «منطقة الصنع» ثم اضغط «صنع: حبل».', 'افتح الحقيبة، أضف الليف إلى «منطقة الصنع» ثم اضغط «صنع: حبل».') },
+      { id: 'exit', title: 'اخرج من الحصن', text: 'اتجه إلى البوابة الشمالية. عمود من الضوء يدلّك عليها.' }
+    ];
+    var prog = $('tut-prog'); prog.innerHTML = '';
+    tut.steps.forEach(function () { prog.appendChild(document.createElement('i')); });
+  }
+  function tutNow(id) { return !tut.done && tut.i >= 0 && tut.i < tut.steps.length && tut.steps[tut.i].id === id; }
+  function tutShow() {
+    var s = tut.steps[tut.i];
+    $('tut-n').textContent = 'الدرس ' + (tut.i + 1) + ' من ' + tut.steps.length;
+    $('tut-title').textContent = s.title; $('tut-text').textContent = s.text;
+    var segs = $('tut-prog').children;
+    for (var j = 0; j < segs.length; j++) segs[j].className = j < tut.i ? 'done' : (j === tut.i ? 'cur' : '');
+    gateBeam.visible = s.id === 'exit';
+    if (s.id === 'craft' && haveOf('fiber') < 4 && !countOf('rope')) addItem('fiber', 4 - haveOf('fiber'));
+  }
+  function tutNext() {
+    tut.acc = 0; tut.i++;
+    beep(760, 0.1);
+    if (tut.i >= tut.steps.length) { tutFinish(); return; }
+    say('أحسنت'); tutShow();
+  }
+  function tutFinish() {
+    tut.done = true; gateBeam.visible = false;
+    say('انتهى الشرح');
+    $('tut-n').textContent = 'انتهى الشرح'; $('tut-title').textContent = 'العالم مفتوح أمامك';
+    $('tut-text').textContent = K('اضغط B في أي وقت لفتح الكتاب ومراجعة أزرار التحكم.', 'اضغط زر «كتاب» في أي وقت لمراجعة أزرار التحكم.');
+    var segs = $('tut-prog').children; for (var j = 0; j < segs.length; j++) segs[j].className = 'done';
+    $('tut-skip').hidden = true;
+    setTimeout(function () { $('tut').hidden = true; }, 6000);
+  }
+  function tutEvent(id) { if (tutNow(id)) tutNext(); }
+  function skipTutorial() {
+    if (tut.done || tut.i < 0) return;
+    tut.done = true; gateBeam.visible = false; $('tut').hidden = true;
+  }
+  function startTutorial() {
+    buildTut(); tut.i = 0; tut.done = false; tut.acc = 0;
+    $('tut-skip').hidden = false; $('tut').hidden = false; tutShow();
+  }
+  $('tut-skip').addEventListener('click', skipTutorial);
+
+  // ---------- map ----------
+  var mapBase = null, MAP_R = 1050, MAP_N = 288;
+  var MAPCOL = [[92, 156, 66], [52, 46, 60], [214, 184, 92], [96, 56, 48]];
+  function buildMapBase() {
+    var c = document.createElement('canvas'); c.width = c.height = MAP_N;
+    var g = c.getContext('2d'), img = g.createImageData(MAP_N, MAP_N), w = [0, 0, 0, 0], i, j, k;
+    for (j = 0; j < MAP_N; j++) for (i = 0; i < MAP_N; i++) {
+      var x = (i + 0.5) / MAP_N * 2 * MAP_R - MAP_R, z = (j + 0.5) / MAP_N * 2 * MAP_R - MAP_R;
+      biomeWeights(x, z, w);
+      var r = 0, gg = 0, b = 0;
+      for (k = 0; k < 4; k++) { r += MAPCOL[k][0] * w[k]; gg += MAPCOL[k][1] * w[k]; b += MAPCOL[k][2] * w[k]; }
+      var ed = edgeDist(x, z);
+      if (ed < 135) {
+        var sk = 1 - sstep(95, 135, ed); r += (214 - r) * sk; gg += (196 - gg) * sk; b += (140 - b) * sk;
+        var sea = 1 - sstep(40, 52, ed), dp = sstep(40, -40, ed);
+        r += ((50 - 30 * dp) - r) * sea; gg += ((130 - 40 * dp) - gg) * sea; b += ((190 - 30 * dp) - b) * sea;
+      }
+      var p = (j * MAP_N + i) * 4;
+      img.data[p] = r; img.data[p + 1] = gg; img.data[p + 2] = b; img.data[p + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+    return c;
+  }
+  function drawMap() {
+    if (!mapBase) mapBase = buildMapBase();
+    var cv = $('map-canvas'), g = cv.getContext('2d'), S = MAP_N / (2 * MAP_R);
+    function mx(x) { return (x + MAP_R) * S; }
+    function mz(z) { return (z + MAP_R) * S; }
+    g.drawImage(mapBase, 0, 0);
+    g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 1;
+    g.strokeRect(mx(-PLAY), mz(-PLAY), 2 * PLAY * S, 2 * PLAY * S);
+    LAKES.forEach(function (l) { g.fillStyle = '#ff6a1a'; g.beginPath(); g.arc(mx(l[0]), mz(l[1]), Math.max(2, l[2] * S), 0, 6.283); g.fill(); });
+    VOLC.forEach(function (v) {
+      g.strokeStyle = 'rgba(30,10,8,0.85)'; g.lineWidth = 2; g.beginPath(); g.arc(mx(v.x), mz(v.z), v.R * S * 0.5, 0, 6.283); g.stroke();
+      g.fillStyle = '#ffb347'; g.beginPath(); g.arc(mx(v.x), mz(v.z), 3, 0, 6.283); g.fill();
+    });
+    var fh = BOUND + WALL_T;
+    g.fillStyle = '#8a8478'; g.fillRect(mx(-fh), mz(-fh), 2 * fh * S, 2 * fh * S);
+    g.fillStyle = 'rgb(92,156,66)'; g.fillRect(mx(-BOUND), mz(-BOUND), 2 * BOUND * S, 2 * BOUND * S);
+    g.fillStyle = '#ffb347'; g.fillRect(mx(-GATE), mz(-fh) - 1, 2 * GATE * S, WALL_T * S + 2);
+    g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.strokeRect(mx(-fh) - 3, mz(-fh) - 3, 2 * fh * S + 6, 2 * fh * S + 6);
+    g.fillStyle = '#fff'; g.font = '700 14px Tajawal, sans-serif'; g.textAlign = 'center'; g.fillText('شمال', MAP_N / 2, 16);
+    var a = Math.atan2(-Math.cos(yaw), -Math.sin(yaw));
+    g.save(); g.translate(mx(px), mz(pz)); g.rotate(a);
+    g.fillStyle = '#fff'; g.strokeStyle = '#1a1204'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(9, 0); g.lineTo(-6, 5.5); g.lineTo(-3, 0); g.lineTo(-6, -5.5); g.closePath(); g.stroke(); g.fill();
+    g.restore();
+  }
+
+  // ---------- bag, book and blueprints ----------
+  var SV = function (s) { return '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + s + '</svg>'; };
+  var ITEMS = {
+    wood: { n: 'خشب', d: 'جذوع وأغصان للبناء والنار.', ic: SV('<path d="M6 27 29 11M11 34 34 18"/><circle cx="31" cy="14.5" r="3.2"/><circle cx="36" cy="21.5" r="3.2"/>') },
+    stone: { n: 'حجر', d: 'حجارة صلبة للجدران والأدوات.', ic: SV('<path d="m6 28 6-14 12-4 10 8 2 10-8 6H12z"/><path d="m12 14 6 8 14-4M18 22l4 12"/>') },
+    fiber: { n: 'ليف', d: 'ألياف نباتية تُفتل حبالًا.', ic: SV('<path d="M10 34C10 22 14 14 12 6M20 34c0-10 4-16 8-22M30 34c0-8 0-12 4-18"/>') },
+    herb: { n: 'عشب', d: 'أعشاب عطرية للشاي والحساء.', ic: SV('<path d="M20 35V14"/><path d="M20 24c-8 0-11-6-11-11 7 0 11 4 11 11ZM20 19c7 0 10-5 10-10-6 0-10 4-10 10Z"/>') },
+    berry: { n: 'توت', d: 'ثمار حلوة تؤكل نيئة أو مشوية.', ic: SV('<circle cx="14" cy="26" r="6"/><circle cx="26" cy="26" r="6"/><circle cx="20" cy="16" r="6"/><path d="M20 10c0-3 2-5 5-5"/>') }
+  };
+  var BPS = {
+    bp_hut: 'hut', bp_tower: 'tower', bp_wall: 'wall', bp_tea: 'tea', bp_soup: 'soup'
+  };
+  var BPIC = SV('<path d="M10 9h20v22H10z" fill="none"/><path d="M14 15h12M14 20h12M14 25h7"/><path d="M8 9a3 3 0 0 1 0 6M32 31a3 3 0 0 0 0-6"/>');
+
+  var DR = function (s) { return '<svg viewBox="0 0 120 90" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + s + '</svg>'; };
+  var DRAW = {
+    keys: DR('<rect x="22" y="28" width="76" height="38" rx="14"/><path d="M40 40v14M33 47h14"/><circle cx="76" cy="42" r="4" class="a"/><circle cx="86" cy="52" r="4"/>'),
+    world: DR('<circle cx="90" cy="24" r="9" class="a"/><path d="M8 74 36 34l16 22 14-16 46 34z"/><path d="M28 46l8 6 6-4"/>'),
+    time: DR('<circle cx="60" cy="45" r="30"/><path d="M60 15v60M30 45h60" class="a"/><path d="M60 45 78 33"/>'),
+    bars: DR('<rect x="20" y="22" width="80" height="10" rx="3"/><rect x="20" y="40" width="80" height="10" rx="3"/><rect x="20" y="58" width="80" height="10" rx="3"/><path class="a" d="M24 27h56M24 45h38M24 63h48"/>'),
+    bag: DR('<path d="M36 36c0-14 8-22 24-22s24 8 24 22"/><path d="M30 36h60l4 40H26z"/><path d="M48 52h24" class="a"/>'),
+    campfire: DR('<path class="a" d="M60 14c10 12 18 20 10 34-4 8-18 8-20 0-4-10 6-16 10-34z"/><path d="M28 72l62-16M92 72 30 56"/><path d="M40 80h40"/>'),
+    hut: DR('<path class="a" d="M14 48 60 14l46 34"/><path d="M26 44v34h68V44"/><path d="M52 78V56h16v22"/><path d="M78 54h10v10H78z"/>'),
+    tower: DR('<path d="M42 82V30h36v52"/><path class="a" d="M36 30V16h8v6h8v-6h16v6h8v-6h8v14z"/><path d="M54 48h12v14H54z"/><path d="M28 82h64"/>'),
+    wall: DR('<rect x="12" y="26" width="96" height="50" rx="2"/><path class="a" d="M12 43h96M12 60h96M36 26v17M72 26v17M54 43v17M90 43v17M36 60v16M72 60v16"/>'),
+    rope: DR('<path class="a" d="M24 58c0-18 22-26 38-18s18 26 2 34-36 2-32-18 28-22 40-8"/><path d="M88 66c10 0 14 6 18 12"/>'),
+    axe: DR('<path d="M34 80 80 22"/><path class="a" d="M68 22c14-8 30 0 32 14-12 4-24-2-32-14z"/>'),
+    spear: DR('<path d="M26 82 90 18"/><path class="a" d="m90 18 10-12-4 20z"/><path d="M40 68l8 8"/>'),
+    torch: DR('<path d="M52 82 64 46"/><path class="a" d="M70 12c8 8 12 14 6 24-3 5-14 5-16-1-3-8 6-12 10-23z"/><path d="M56 48h16"/>'),
+    berry: DR('<path d="M30 80 96 30"/><circle cx="48" cy="58" r="8" class="a"/><circle cx="64" cy="46" r="8" class="a"/><circle cx="80" cy="34" r="8" class="a"/><path d="M40 84c6-6 10-6 14 0M70 84c6-6 10-6 14 0"/>'),
+    tea: DR('<path d="M32 44h46v16c0 12-8 18-23 18S32 72 32 60z"/><path d="M78 50h8a9 9 0 0 1 0 18h-10"/><path class="a" d="M46 36c-4-6 4-8 0-14M62 36c-4-6 4-8 0-14"/>'),
+    soup: DR('<path d="M20 46h80c0 20-16 32-40 32S20 66 20 46z"/><path d="M14 46h92"/><path class="a" d="M42 36c-4-6 4-8 0-14M60 36c-4-6 4-8 0-14M78 36c-4-6 4-8 0-14"/>')
+  };
+
+  var WOODS = ['wood', 'wood_dark', 'wood_white'];
+  ITEMS.wood.n = 'خشب عادي';
+  ITEMS.wood_dark = { n: 'خشب غامق', d: 'خشب داكن صلب من الأشجار المظلمة.', ic: ITEMS.wood.ic };
+  ITEMS.wood_white = { n: 'خشب أبيض', d: 'خشب شاحب نادر من الأشجار البيضاء.', ic: ITEMS.wood.ic };
+  ITEMS.rope = { n: 'حبل', d: 'حبل مفتول من الليف.', ic: DRAW.rope };
+  ITEMS.axe = { n: 'فأس حجري', d: 'فأس برأس حجري ومقبض خشبي.', ic: DRAW.axe };
+  ITEMS.spear = { n: 'رمح حجري', d: 'رمح بسنّ حجري.', ic: DRAW.spear };
+  ITEMS.torch = { n: 'مشعل', d: 'غصن ملفوف بالليف.', ic: DRAW.torch };
+  var WEAPONS = {
+    axe_s: { base: 'axe', sc: 0.75, tree: 1.5, reach: 0, dur: 0.24, ch: 0.6 },
+    axe: { base: 'axe', sc: 1, tree: 2.2, reach: 0, dur: 0.3, ch: 0.8 },
+    axe_l: { base: 'axe', sc: 1.35, tree: 3.4, reach: 0.5, dur: 0.4, ch: 1.0 },
+    spear_s: { base: 'spear', sc: 0.75, tree: 0.5, reach: 0.7, dur: 0.24, ch: 0.6 },
+    spear: { base: 'spear', sc: 1, tree: 0.6, reach: 1.3, dur: 0.3, ch: 0.8 },
+    spear_l: { base: 'spear', sc: 1.35, tree: 0.7, reach: 2.0, dur: 0.38, ch: 1.0 }
+  };
+  ITEMS.axe_s = { n: 'فأس صغير', d: 'خفيف وسريع الضرب، يقطع أبطأ من الفأس العادي. الضربة القوية: دوران واسع.', ic: DRAW.axe };
+  ITEMS.axe_l = { n: 'فأس كبير', d: 'ثقيل وبطيء، يقطع الخشب أسرع بكثير. الضربة القوية: دوران واسع يصيب عدة أشجار.', ic: DRAW.axe };
+  ITEMS.spear_s = { n: 'رمح قصير', d: 'خفيف وسريع الطعن. الضربة القوية: طعنة اندفاعية.', ic: DRAW.spear };
+  ITEMS.spear_l = { n: 'رمح طويل', d: 'أطول مدى وأبطأ. الضربة القوية: طعنة طويلة تخترق وتندفع بك للأمام.', ic: DRAW.spear };
+  ITEMS.axe.d = 'فأس برأس حجري ومقبض خشبي. الضربة القوية: دوران واسع.'; ITEMS.spear.d = 'رمح بسنّ حجري. الضربة القوية: طعنة طويلة تندفع بك للأمام.';
+  var BTABS = [['info', 'شرح'], ['build', 'بناء'], ['craft', 'صناعة'], ['cook', 'طبخ']];
+  var PAGES = [
+    { id: 'keys', tab: 'info', t: 'أزرار التحكم', draw: 'keys', d: 'كل ما تحتاجه للحركة والقتال.', keys: true },
+    { id: 'world', tab: 'info', t: 'العالم والبيئات', draw: 'world', d: 'العالم واسع (نحو 2 كم في 2 كم) وفيه أربع بيئات: المرج العادي حول الحصن وفي الغرب وهو الأوسع، والبيئة المظلمة بضبابها الأحمر في الشمال، والسافانا في الشرق، والمنطقة البركانية بحممها في الجنوب. افتح الخريطة لتعرف أين أنت.' },
+    { id: 'time', tab: 'info', t: 'الأيام والفصول', draw: 'time', d: 'اليوم الواحد سبع دقائق بنهاره وليله. تتبدل الفصول الأربعة: الربيع والصيف والخريف والشتاء، وتتغير ألوان الأرض والجو معها.' },
+    { id: 'bars', tab: 'info', t: 'الأشرطة', draw: 'bars', d: 'القوة والمانا والطعام: حالتك تظهر في أعلى الشاشة.' },
+    { id: 'bag', tab: 'info', t: 'الحقيبة والمخططات', draw: 'bag', d: 'تجمع الموارد بالمشي فوقها: خشب وحجر وليف وعشب وتوت. أما المخططات فلفائف متوهجة يخرج منها عمود ضوء؛ افتحها من الحقيبة لتُضاف صفحتها إلى الكتاب.' },
+
+    { id: 'campfire', tab: 'build', t: 'موقد النار', draw: 'campfire', free: true, d: 'ضع الحجارة في دائرة وكدّس الخشب في وسطها. الموقد أساس الطبخ ومصدر الدفء في الليل.', mats: [['wood', 3], ['stone', 4]] },
+    { id: 'hut', tab: 'build', t: 'كوخ خشبي', draw: 'hut', bp: 'bp_hut', hint: 'في ساحة الحصن القديم', d: 'مأوى صغير بأربعة جدران وسقف مائل. أقم الأعمدة أولًا، ثم اربط الألواح بالحبال، وأخيرًا ضع السقف.', mats: [['wood', 12], ['fiber', 6], ['stone', 4]] },
+    { id: 'tower', tab: 'build', t: 'برج مراقبة', draw: 'tower', bp: 'bp_tower', hint: 'في السافانا', d: 'برج مرتفع ترى منه الأرض من بعيد. القاعدة من الحجر لتثبته، والأعلى من الخشب.', mats: [['wood', 16], ['stone', 8], ['fiber', 4]] },
+    { id: 'wall', tab: 'build', t: 'جدار حجري', draw: 'wall', bp: 'bp_wall', hint: 'في المنطقة البركانية', d: 'جدار يحمي مخيمك. رصّ الحجارة صفوفًا متداخلة كي لا تتطابق الفواصل، فيصمد أكثر.', mats: [['stone', 15], ['wood', 2]] },
+
+    { id: 'rope', tab: 'craft', t: 'حبل', draw: 'rope', free: true, out: 'rope', d: 'افتل ثلاث خصل من الليف معًا. الحبل يدخل في كل شيء تقريبًا.', mats: [['fiber', 4]] },
+    { id: 'axe', tab: 'craft', t: 'فأس حجري', draw: 'axe', free: true, out: 'axe', d: 'اربط رأسًا حجريًا مسنونًا بمقبض خشبي بالحبل. يقطع الخشب أسرع.', mats: [['wood', 2], ['stone', 3], ['fiber', 3]] },
+    { id: 'spear', tab: 'craft', t: 'رمح', draw: 'spear', free: true, out: 'spear', d: 'عمود خشبي مستقيم بسنّ حجري في طرفه، للدفاع عن النفس من مسافة.', mats: [['wood', 3], ['stone', 1], ['fiber', 2]] },
+    { id: 'axe_s', tab: 'craft', t: 'فأس صغير', draw: 'axe', free: true, out: 'axe_s', d: 'فأس خفيف بمقبض قصير. ضربته سريعة.', mats: [['wood', 1], ['stone', 2], ['fiber', 2]] },
+    { id: 'axe_l', tab: 'craft', t: 'فأس كبير', draw: 'axe', free: true, out: 'axe_l', d: 'رأس حجري ضخم ومقبض طويل. بطيء لكنه يقطع بسرعة.', mats: [['wood', 3], ['stone', 5], ['fiber', 4]] },
+    { id: 'spear_s', tab: 'craft', t: 'رمح قصير', draw: 'spear', free: true, out: 'spear_s', d: 'رمح خفيف للطعن السريع.', mats: [['wood', 2], ['stone', 1], ['fiber', 1]] },
+    { id: 'spear_l', tab: 'craft', t: 'رمح طويل', draw: 'spear', free: true, out: 'spear_l', d: 'رمح طويل جدًا بمدى بعيد.', mats: [['wood', 4], ['stone', 2], ['fiber', 3]] },
+    { id: 'torch', tab: 'craft', t: 'مشعل', draw: 'torch', free: true, out: 'torch', d: 'غصن ملفوف بالليف يشتعل من الموقد. ينير الظلمة ويبدد الضباب القريب.', mats: [['wood', 1], ['fiber', 2]] },
+
+    { id: 'roast', tab: 'cook', t: 'توت مشوي', draw: 'berry', free: true, d: 'اغرز حبات التوت في عود وقرّبه من لهب الموقد حتى تلين وتحلو.', mats: [['berry', 3]] },
+    { id: 'tea', tab: 'cook', t: 'شاي الأعشاب', draw: 'tea', bp: 'bp_tea', hint: 'في المرج العادي', d: 'اغلِ الأعشاب فوق الموقد ثم دعها تنقع قليلًا.', mats: [['herb', 2]] },
+    { id: 'soup', tab: 'cook', t: 'حساء الأعشاب', draw: 'soup', bp: 'bp_soup', hint: 'في السافانا', d: 'اطبخ الأعشاب والتوت في وعاء حجري على نار هادئة.', mats: [['herb', 2], ['berry', 2], ['stone', 1]] }
+  ];
+  var PAGE_BY_BP = {}, PAGE_BY_ID = {};
+  PAGES.forEach(function (p) { PAGE_BY_ID[p.id] = p; if (p.bp) { PAGE_BY_BP[p.bp] = p; ITEMS[p.bp] = { n: 'مخطط: ' + p.t, d: 'مخطط يضيف صفحة «' + p.t + '» إلى الكتاب.', ic: BPIC, bp: true }; } });
+
+  var BAG_SLOTS = 12, STACK = 99;
+  var bag = [], unlocked = {}, fresh = {}, bookTab = 'info', selSlot = -1, shownHint = false;
+  PAGES.forEach(function (p) { if (!p.bp) unlocked[p.id] = true; });
+  function countOf(id) { var n = 0; bag.forEach(function (s) { if (s.id === id) n += s.n; }); return n; }
+  function addItem(id, n) {
+    for (var i = 0; i < bag.length && n > 0; i++) if (bag[i].id === id && bag[i].n < STACK) { var t = Math.min(n, STACK - bag[i].n); bag[i].n += t; n -= t; }
+    while (n > 0 && bag.length < BAG_SLOTS) { var t2 = Math.min(n, STACK); bag.push({ id: id, n: t2 }); n -= t2; }
+    return n; // what did not fit
+  }
+  function haveOf(id) { if (id !== 'wood') return countOf(id); var n = 0; WOODS.forEach(function (w) { n += countOf(w); }); return n; }
+  function takeOne(id, n) {
+    for (var i = 0; i < bag.length && n > 0;) {
+      if (bag[i].id === id) { var t = Math.min(n, bag[i].n); bag[i].n -= t; n -= t; if (bag[i].n <= 0) { bag.splice(i, 1); continue; } }
+      i++;
+    }
+    return n;
+  }
+  function takeItem(id, n) { if (id !== 'wood') return takeOne(id, n); for (var k = 0; k < WOODS.length && n > 0; k++) n = takeOne(WOODS[k], n); return n; }
+  function matCost(m) { return has('c4') && m[1] > 1 ? m[1] - 1 : m[1]; }
+  function canCraft(p) { return p.mats.every(function (m) { return haveOf(m[0]) >= matCost(m); }); }
+  function craft(p) {
+    if (!p.out || !canCraft(p)) { say('المواد غير كافية'); return false; }
+    var room = bag.length < BAG_SLOTS || bag.some(function (s) { return s.id === p.out && s.n < STACK; });
+    if (!room) { say('الحقيبة ممتلئة'); return false; }
+    p.mats.forEach(function (m) { takeItem(m[0], matCost(m)); });
+    addItem(p.out, 1); selSlot = -1; gainXp(10);
+    tone(420, 760, 0.2, 0.14, 'triangle'); say('صُنع: ' + ITEMS[p.out].n);
+    saveNow(); renderBook();
+    return true;
+  }
+  function newDots() {
+    var any = Object.keys(fresh).length > 0, b = $('b-book');
+    var d = b.querySelector('.nw');
+    if (any && !d) { d = document.createElement('i'); d.className = 'nw'; b.appendChild(d); }
+    else if (!any && d) d.remove();
+  }
+
+  var cArea = {};
+  function cKey(id) { return WOODS.indexOf(id) >= 0 ? 'wood' : id; }
+  function cClamp() { for (var k in cArea) { cArea[k] = Math.min(cArea[k], haveOf(k)); if (cArea[k] <= 0) delete cArea[k]; } }
+  function cAdd(id, n) {
+    var k = cKey(id);
+    if (!(k in cArea) && Object.keys(cArea).length >= 4) { say('منطقة الصنع تتسع لأربعة أنواع'); return; }
+    cArea[k] = Math.min(haveOf(k), (cArea[k] || 0) + n); cClamp(); tone(500, 620, 0.05, 0.06, 'triangle'); renderBag();
+  }
+  function cMatches() {
+    var keys = Object.keys(cArea); if (!keys.length) return [];
+    return PAGES.filter(function (p) {
+      if (!p.out || !unlocked[p.id] || p.mats.length !== keys.length) return false;
+      return p.mats.every(function (m) { return cArea[m[0]] === matCost(m); });
+    });
+  }
+  function craftFromArea(p) {
+    var snap = p.mats.map(function (m) { return [m[0], matCost(m)]; });
+    if (!craft(p)) return;
+    snap.forEach(function (m) { cArea[m[0]] = (cArea[m[0]] || 0) - m[1]; });
+    cClamp(); tutEvent('craft'); renderBag();
+  }
+  function renderCraft() {
+    var box = $('craftbox'); box.innerHTML = ''; cClamp();
+    var h = document.createElement('h3'); h.textContent = 'منطقة الصنع'; box.appendChild(h);
+    if (tutNow('craft')) { var tp = document.createElement('div'); tp.className = 'ctip'; tp.textContent = 'اختر «ليف» من الحقيبة ثم «إضافة الكل إلى الصنع»، وبعدها اضغط «صنع: حبل».'; box.appendChild(tp); }
+    var keys = Object.keys(cArea);
+    if (!keys.length) { var e = document.createElement('div'); e.textContent = 'اختر عنصرًا من الحقيبة وأضفه إلى هنا (أو اضغط على الخانة المحددة مرة أخرى لإضافة واحد). عند اكتمال مجموعة تطابق وصفة، يظهر زر الصنع.'; box.appendChild(e); return; }
+    keys.forEach(function (k) {
+      var r = document.createElement('div'); r.className = 'crow';
+      var nm = k === 'wood' ? 'خشب (أي نوع)' : ITEMS[k].n, ic = k === 'wood' ? ITEMS.wood.ic : ITEMS[k].ic;
+      r.innerHTML = ic; var sp = document.createElement('span'); sp.textContent = nm + ' × ' + cArea[k] + ' (متوفر ' + haveOf(k) + ')'; r.appendChild(sp);
+      var mn = document.createElement('button'); mn.type = 'button'; mn.className = 'mini'; mn.textContent = '−'; mn.setAttribute('aria-label', 'إنقاص ' + nm);
+      mn.addEventListener('click', function () { cArea[k] -= 1; cClamp(); renderBag(); });
+      var pl = document.createElement('button'); pl.type = 'button'; pl.className = 'mini'; pl.textContent = '+'; pl.setAttribute('aria-label', 'زيادة ' + nm);
+      pl.addEventListener('click', function () { cAdd(k, 1); });
+      r.appendChild(mn); r.appendChild(pl); box.appendChild(r);
+    });
+    var ms = cMatches(), row = document.createElement('div');
+    if (ms.length) ms.forEach(function (p) { var b = document.createElement('button'); b.type = 'button'; b.className = 'use'; b.textContent = 'صنع: ' + ITEMS[p.out].n; b.addEventListener('click', function () { craftFromArea(p); }); row.appendChild(b); });
+    else { var no = document.createElement('div'); no.textContent = 'لا توجد وصفة بهذه الكميات بالضبط. جرّب تغيير الأعداد أو راجع صفحات الكتاب.'; row.appendChild(no); }
+    var cl = document.createElement('button'); cl.type = 'button'; cl.className = 'use'; cl.textContent = 'تفريغ'; cl.addEventListener('click', function () { cArea = {}; renderBag(); });
+    row.appendChild(cl); box.appendChild(row);
+  }
+  function renderBag() {
+    renderCraft();
+    var g = $('bag-grid'); g.innerHTML = '';
+    for (var i = 0; i < BAG_SLOTS; i++) {
+      var s = bag[i], b = document.createElement('button'); b.type = 'button'; b.className = 'slot';
+      if (!s) { b.classList.add('empty'); b.disabled = true; b.setAttribute('aria-label', 'خانة فارغة'); }
+      else {
+        var it = ITEMS[s.id];
+        b.innerHTML = it.ic + '<span>' + it.n + '</span>' + (s.n > 1 ? '<span class="n">' + s.n + '</span>' : '');
+        b.setAttribute('aria-pressed', i === selSlot ? 'true' : 'false');
+        b.setAttribute('aria-label', it.n + ' ' + s.n);
+        (function (k) { b.addEventListener('click', function () { if (selSlot === k && bag[k] && !ITEMS[bag[k].id].bp) cAdd(bag[k].id, 1); else { selSlot = k; renderBag(); } }); })(i);
+      }
+      g.appendChild(b);
+    }
+    $('bag-count').textContent = bag.length + ' / ' + BAG_SLOTS + ' خانة';
+    var dt = $('bag-detail'); dt.innerHTML = '';
+    var cur = bag[selSlot];
+    if (!cur) { dt.textContent = bag.length ? 'اختر عنصرًا لترى تفاصيله.' : 'الحقيبة فارغة. امشِ فوق الخشب والحجر والأعشاب في العالم لتجمعها.'; return; }
+    var it2 = ITEMS[cur.id], bt = document.createElement('b'); bt.textContent = it2.n + (cur.n > 1 ? ' × ' + cur.n : '');
+    var tx = document.createElement('div'); tx.textContent = it2.d;
+    dt.appendChild(bt); dt.appendChild(tx);
+    if (it2.bp) {
+      var pg = PAGE_BY_BP[cur.id], u = document.createElement('button'); u.type = 'button'; u.className = 'use'; u.textContent = 'إضافة إلى الكتاب';
+      u.addEventListener('click', function () {
+        unlocked[pg.id] = true; fresh[pg.id] = true; bookTab = pg.tab;
+        cur.n -= 1; if (cur.n <= 0) { bag.splice(selSlot, 1); selSlot = -1; }
+        tone(520, 880, 0.25, 0.14, 'triangle'); say('أُضيفت صفحة «' + pg.t + '» إلى الكتاب'); gainXp(15);
+        newDots(); renderBag();
+      });
+      dt.appendChild(u);
+    } else {
+      var used = PAGES.filter(function (p) { return p.mats && p.mats.some(function (m) { return m[0] === (WOODS.indexOf(cur.id) >= 0 ? 'wood' : cur.id); }); }).map(function (p) { return p.t; });
+      if (used.length) { var us = document.createElement('div'); us.textContent = 'يدخل في: ' + used.join('، '); dt.appendChild(us); }
+      if (FOOD[cur.id]) { var eb = document.createElement('button'); eb.type = 'button'; eb.className = 'use'; eb.textContent = 'أكل (+' + FOOD[cur.id] + ' طعام)'; eb.addEventListener('click', function () { eatItem(cur.id); renderBag(); }); dt.appendChild(eb); }
+      var ca1 = document.createElement('button'); ca1.type = 'button'; ca1.className = 'use'; ca1.textContent = 'إضافة 1 إلى الصنع'; ca1.addEventListener('click', function () { cAdd(cur.id, 1); });
+      var ca2 = document.createElement('button'); ca2.type = 'button'; ca2.className = 'use'; ca2.textContent = 'إضافة الكل إلى الصنع'; ca2.addEventListener('click', function () { cAdd(cur.id, 99); });
+      dt.appendChild(ca1); dt.appendChild(ca2);
+      var ob2 = document.createElement('button'); ob2.type = 'button'; ob2.className = 'use'; ob2.textContent = offId === cur.id ? 'إخراج من اليد 2' : 'وضع في اليد 2'; ob2.addEventListener('click', function () { setOff(cur.id); renderBag(); }); dt.appendChild(ob2);
+    }
+  }
+
+  function pageEl(p) {
+    var open = !!unlocked[p.id], el = document.createElement('article'); el.className = 'page' + (open ? '' : ' lock');
+    var pic = document.createElement('div'); pic.className = 'pic';
+    pic.innerHTML = open ? DRAW[p.draw] : SV('<rect x="9" y="18" width="22" height="16" rx="3"/><path d="M13 18v-5a7 7 0 0 1 14 0v5"/>');
+    if (!open) pic.firstChild.setAttribute('width', 44);
+    var bd = document.createElement('div'), h = document.createElement('h3'), tx = document.createElement('p');
+    h.textContent = open ? p.t : 'مخطط غير مكتشف';
+    if (open && fresh[p.id]) { var bg = document.createElement('span'); bg.className = 'badge'; bg.textContent = 'جديد'; h.appendChild(bg); }
+    tx.textContent = open ? p.d : 'ابحث عن لفافة المخطط ' + p.hint + '.';
+    bd.appendChild(h); bd.appendChild(tx);
+    if (open && p.keys) { var dl = document.createElement('dl'); dl.className = 'keys'; fillKeys(dl); bd.appendChild(dl); }
+    if (open && p.mats) {
+      var ms = document.createElement('div'); ms.className = 'mats';
+      p.mats.forEach(function (m) { var c = document.createElement('span'), have = haveOf(m[0]); c.className = 'mat' + (have >= matCost(m) ? ' ok' : ''); c.textContent = (m[0] === 'wood' ? 'خشب (أي نوع)' : ITEMS[m[0]].n) + ' ' + Math.min(have, 99) + '/' + matCost(m); ms.appendChild(c); });
+      bd.appendChild(ms);
+      if (p.out) { var cb = document.createElement('button'); cb.type = 'button'; cb.className = 'use'; cb.textContent = 'صنع'; cb.disabled = !canCraft(p); cb.addEventListener('click', function () { craft(p); }); bd.appendChild(cb); }
+    }
+    el.appendChild(pic); el.appendChild(bd);
+    return el;
+  }
+  function renderBook() {
+    var tb = $('book-tabs'); tb.innerHTML = '';
+    BTABS.forEach(function (t) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'tab'; b.setAttribute('role', 'tab'); b.textContent = t[1];
+      b.setAttribute('aria-selected', t[0] === bookTab ? 'true' : 'false');
+      if (PAGES.some(function (p) { return p.tab === t[0] && fresh[p.id]; })) { var d = document.createElement('i'); d.className = 'nw'; b.appendChild(d); }
+      b.addEventListener('click', function () { bookTab = t[0]; renderBook(); });
+      tb.appendChild(b);
+    });
+    var pg = $('book-pages'); pg.innerHTML = '';
+    PAGES.forEach(function (p) { if (p.tab === bookTab) pg.appendChild(pageEl(p)); });
+    var total = PAGES.filter(function (p) { return p.bp; }).length, got = PAGES.filter(function (p) { return p.bp && unlocked[p.id]; }).length;
+    $('book-count').textContent = 'المخططات المكتشفة: ' + got + ' من ' + total;
+  }
+
+  // ---------- hotbar (first 6 bag slots) and the item held in the right hand ----------
+  var HB_N = 6, hbSel = -1, offId = null, hbSig = '', hbEl = $('hotbar'), heldG = [null, null], heldId = [null, null], heldCache = [{}, {}];
+  // hand 1 = right hand (tap / keys 1-6); hand 2 = left hand: its own square, filled by long press / Shift + 1-6 / the bag
+  function setOff(id) {
+    offId = offId === id ? null : id; hbSig = '';
+    if (offId) { tone(500, 640, 0.07, 0.07, 'triangle'); say('اليد 2: ' + ITEMS[id].n); }
+  }
+  function hbSelect(i, hand) {
+    if (!bag[i]) { if (hand !== 2) hbSel = -1; hbSig = ''; return; }
+    if (hand === 2) { setOff(bag[i].id); return; }
+    hbSel = hbSel === i ? -1 : i; hbSig = '';
+    if (hbSel >= 0) { tone(500, 640, 0.07, 0.07, 'triangle'); say('اليد 1: ' + ITEMS[bag[i].id].n); }
+  }
+  function buildHeld(id0) {
+    var W0 = WEAPONS[id0], id = W0 ? W0.base : id0;
+    var g = new THREE.Group(), m;
+    var wd = pkMat(0x7a5230), st = pkMat(0x8d8f94);
+    if (id === 'axe') {
+      m = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.46), wd); m.position.z = -0.1; g.add(m);
+      m = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.15, 0.12), st); m.position.set(0, 0.05, -0.28); g.add(m);
+    } else if (id === 'spear') {
+      m = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 1.0), wd); m.position.z = -0.32; g.add(m);
+      m = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.16, 4), st); m.rotation.x = -Math.PI / 2; m.position.z = -0.9; g.add(m);
+    } else if (id === 'torch') {
+      m = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.4), wd); m.position.z = -0.1; g.add(m);
+      m = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffb040 })); m.position.set(0, 0.02, -0.34); g.add(m);
+      var fl2 = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 5), new THREE.MeshBasicMaterial({ color: 0xfff2b0 })); fl2.position.set(0, 0.07, -0.34); g.add(fl2);
+      var gc = document.createElement('canvas'); gc.width = gc.height = 64; var gx = gc.getContext('2d'), gr = gx.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, 'rgba(255,200,90,0.9)'); gr.addColorStop(0.4, 'rgba(255,140,40,0.35)'); gr.addColorStop(1, 'rgba(255,100,20,0)'); gx.fillStyle = gr; gx.fillRect(0, 0, 64, 64);
+      var halo = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.55), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(gc), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+      halo.position.set(0, 0.04, -0.34); g.add(halo); g.userData.flame = [m, fl2, halo];
+    } else if (id === 'wood' || id === 'wood_dark' || id === 'wood_white') {
+      m = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.38, 7), id === 'wood_dark' ? M_WOODD : id === 'wood_white' ? M_WOODW : M_WOOD); m.rotation.x = Math.PI / 2; m.position.z = -0.06; g.add(m);
+    } else if (id === 'stone') {
+      m = new THREE.Mesh(new THREE.DodecahedronGeometry(0.1, 0), M_STONE); m.position.set(0, 0.07, -0.08); g.add(m);
+    } else if (id === 'rope') {
+      m = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.025, 6, 14), M_FIB); m.rotation.x = Math.PI / 2; m.position.set(0, 0.06, -0.06); g.add(m);
+    } else if (id === 'fiber') {
+      m = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.05, 0.2), M_FIB); m.position.set(0, 0.05, -0.06); g.add(m);
+    } else if (id === 'herb') {
+      m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.1, 0), M_LEAF); m.position.set(0, 0.08, -0.07); g.add(m);
+    } else if (id === 'berry') {
+      m = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), M_BERRY); m.position.set(0, 0.08, -0.07); g.add(m);
+    } else return null;
+    if (W0) g.scale.setScalar(W0.sc);
+    return g;
+  }
+  function setHeld(h, id) {
+    if (heldId[h] === id) return;
+    if (heldG[h]) { hands[h === 0 ? 1 : 0].remove(heldG[h]); heldG[h] = null; }
+    heldId[h] = id;
+    if (!id) return;
+    if (!(id in heldCache[h])) heldCache[h][id] = buildHeld(id);
+    heldG[h] = heldCache[h][id];
+    if (heldG[h]) { heldG[h].position.set(0, 0.02, -0.17); hands[h === 0 ? 1 : 0].add(heldG[h]); }
+  }
+  // a held torch lights the dark: a warm flickering light, a halo and a little less fog nearby
+  function torchUpdate(dt, t) {
+    var hand = heldId[0] === 'torch' ? 0 : (heldId[1] === 'torch' ? 1 : -1);
+    torchK += ((hand >= 0 ? 1 : 0) - torchK) * Math.min(1, dt * 6);
+    if (hand >= 0) torchLight.position.x = hand === 0 ? 0.22 : -0.22;
+    var fl = 1 + 0.18 * Math.sin(t * 23) + 0.1 * Math.sin(t * 37 + 1);
+    var dk = 1 - tod.day; torchFlare = Math.max(0, torchFlare - dt * 2.2);
+    torchLight.intensity = torchK * (2.6 + 3.4 * dk + 5 * torchFlare) * fl;
+    torchLight.distance = 24 + 16 * dk + 14 * torchFlare;
+    var g = hand >= 0 ? heldG[hand] : null;
+    if (g && g.userData.flame) { var f = g.userData.flame; f[0].scale.setScalar(fl); f[1].scale.set(0.9 * fl, 1.4 * fl, 0.9 * fl); f[2].scale.setScalar(0.9 + 0.25 * fl); }
+  }
+  function hbRefresh() {
+    if (hbSel >= 0 && !bag[hbSel]) hbSel = -1;
+    if (offId && !countOf(offId)) offId = null;
+    var sig = hbSel + '|' + offId + ':' + (offId ? countOf(offId) : 0) + '|';
+    for (var i = 0; i < HB_N; i++) sig += (bag[i] ? bag[i].id + ':' + bag[i].n : '-') + ',';
+    if (sig === hbSig) return;
+    hbSig = sig; hbEl.innerHTML = '';
+    for (var j = 0; j < HB_N; j++) {
+      var s = bag[j], b = document.createElement('button'); b.type = 'button'; b.className = 'hb' + (s ? '' : ' empty') + (j === hbSel ? ' sel' : '');
+      var k = document.createElement('span'); k.className = 'k'; k.textContent = j + 1;
+      b.appendChild(k);
+      if (s) {
+        b.insertAdjacentHTML('beforeend', ITEMS[s.id].ic); b.setAttribute('aria-label', ITEMS[s.id].n + ' ' + s.n);
+        if (s.n > 1) { var n = document.createElement('span'); n.className = 'n'; n.textContent = s.n; b.appendChild(n); }
+      } else { b.disabled = true; b.setAttribute('aria-label', 'خانة فارغة'); }
+      (function (idx) {
+        var lp = 0, did = false;
+        b.addEventListener('pointerdown', function (e) { e.stopPropagation(); did = false; clearTimeout(lp); lp = setTimeout(function () { did = true; if (running) hbSelect(idx, 2); }, 450); });
+        ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { b.addEventListener(ev, function () { clearTimeout(lp); }); });
+        b.addEventListener('click', function () { if (did) { did = false; return; } if (running) hbSelect(idx, 1); });
+        b.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+      })(j);
+      hbEl.appendChild(b);
+    }
+    var sp = document.createElement('i'); sp.className = 'hb-sep'; hbEl.appendChild(sp);
+    var ob = document.createElement('button'); ob.type = 'button'; ob.className = 'hb off' + (offId ? ' sel2' : ' empty');
+    var ok = document.createElement('span'); ok.className = 'k'; ok.textContent = '2'; ob.appendChild(ok);
+    if (offId) {
+      ob.insertAdjacentHTML('beforeend', ITEMS[offId].ic); ob.setAttribute('aria-label', 'اليد 2: ' + ITEMS[offId].n);
+      var oc = countOf(offId); if (oc > 1) { var on = document.createElement('span'); on.className = 'n'; on.textContent = oc; ob.appendChild(on); }
+    } else ob.setAttribute('aria-label', 'اليد 2 فارغة');
+    ob.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+    ob.addEventListener('click', function () { if (!running) return; if (offId) { offId = null; hbSig = ''; say('أُفرغت اليد 2'); } else say('اضغط مطولًا على عنصر في الشريط لوضعه هنا'); });
+    hbEl.appendChild(ob);
+    setHeld(0, hbSel >= 0 && bag[hbSel] ? bag[hbSel].id : null);
+    setHeld(1, offId);
+  }
+
+  // ---------- pickups in the world ----------
+  var pickups = [], pkTime = 0, fullT = 0;
+  var pkMat = function (hex, em) { return new THREE.MeshLambertMaterial({ color: hex, emissive: em || 0x000000 }); };
+  var M_WOOD = pkMat(0x7a5230), M_STONE = pkMat(0x8d8f94), M_LEAF = pkMat(0x4f9a3c), M_BERRY = pkMat(0xc2283c), M_PURP = pkMat(0x9a5bd0), M_PAPER = pkMat(0xf0dfae, 0x5a4a1a), M_FIB = pkMat(0xb7c46a), M_WOODD = pkMat(0x2b1f1a), M_WOODW = pkMat(0xe6e1d2);
+  var beamMat = new THREE.MeshBasicMaterial({ color: 0xffd36a, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+  function buildPickup(kind) {
+    var g = new THREE.Group(), m;
+    if (kind === 'wood' || kind === 'wood_dark' || kind === 'wood_white') {
+      for (var i = 0; i < 2; i++) { m = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.75, 6), kind === 'wood_dark' ? M_WOODD : kind === 'wood_white' ? M_WOODW : M_WOOD); m.rotation.z = Math.PI / 2; m.rotation.y = i * 0.7; m.position.y = 0.1 + i * 0.16; g.add(m); }
+    } else if (kind === 'stone') {
+      m = new THREE.Mesh(new THREE.DodecahedronGeometry(0.28, 0), M_STONE); m.position.y = 0.22; m.scale.set(1, 0.75, 0.9); g.add(m);
+    } else if (kind === 'fiber') {
+      for (var j = 0; j < 4; j++) { m = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.6, 4), M_FIB); m.position.set((j - 1.5) * 0.09, 0.3, (j % 2) * 0.06); m.rotation.z = (j - 1.5) * 0.18; g.add(m); }
+    } else if (kind === 'herb') {
+      m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.28, 0), M_LEAF); m.position.y = 0.25; g.add(m);
+      for (var k = 0; k < 3; k++) { var f = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 4), M_PURP); f.position.set(Math.cos(k * 2.1) * 0.2, 0.42, Math.sin(k * 2.1) * 0.2); g.add(f); }
+    } else if (kind === 'berry') {
+      m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.3, 0), M_LEAF); m.position.y = 0.26; g.add(m);
+      for (var q = 0; q < 4; q++) { var b2 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), M_BERRY); b2.position.set(Math.cos(q * 1.6) * 0.24, 0.3 + (q % 2) * 0.1, Math.sin(q * 1.6) * 0.24); g.add(b2); }
+    } else { // blueprint scroll with a light beam
+      m = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.6, 10), M_PAPER); m.rotation.z = Math.PI / 2; m.position.y = 0.9; g.add(m);
+      var ring = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.025, 6, 24), new THREE.MeshBasicMaterial({ color: 0xffd36a })); ring.rotation.x = Math.PI / 2; ring.position.y = 0.9; g.add(ring);
+      var bm = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 14, 12, 1, true), beamMat); bm.position.y = 7; g.add(bm);
+    }
+    return g;
+  }
+  function addPickup(kind, id, qty, x, z, once) {
+    var g = buildPickup(kind); g.position.set(x, heightAt(x, z), z); scene.add(g);
+    pickups.push({ g: g, id: id, qty: qty, q0: qty, once: !!once, x: x, z: z, y: g.position.y, bp: kind === 'bp', on: true, back: 0, ph: Math.random() * 6.28 });
+  }
+  (function scatter() {
+    var seed = 12345;
+    function rnd() { seed = (Math.imul(seed, 1664525) + 1013904223) | 0; return ((seed >>> 0) / 4294967296); }
+    var BP_AT = [['bp_hut', 12, -14], ['bp_tea', -400, 90], ['bp_tower', 760, 40], ['bp_soup', 880, -150], ['bp_wall', 150, 720]];
+    BP_AT.forEach(function (b) { addPickup('bp', b[0], 1, b[1], b[2]); });
+    var made = 0, tries = 0;
+    while (made < 12 && tries < 600) {
+      tries++;
+      var x = (rnd() * 2 - 1) * (BOUND - 5), z = (rnd() * 2 - 1) * (BOUND - 5);
+      if (Math.hypot(x, z) < 4) continue;
+      var bad = false;
+      for (var ci = 0; ci < colliders.length; ci++) { var c = colliders[ci]; if (Math.hypot(x - c.x, z - c.z) < c.r + 1.4) { bad = true; break; } }
+      if (bad) continue;
+      var list = PK_KINDS[0], kind = list[Math.floor(rnd() * list.length)];
+      addPickup(kind, kind, 1 + Math.floor(rnd() * 2), x, z);
+      made++;
+    }
+  })();
+  function syncCellPickups(active) {
+    if (!pickups) return;
+    var i, k, c;
+    for (i = pickups.length - 1; i >= 0; i--) {
+      var p = pickups[i];
+      if (p.cell && !active[p.cell]) { scene.remove(p.g); pickups.splice(i, 1); c = cells[p.cell]; if (c) c.pkOn = false; }
+    }
+    for (k in active) {
+      c = cells[k];
+      if (c && !c.pkOn) { c.pkOn = true; for (i = 0; i < c.pk.length; i++) { var s = c.pk[i]; addPickup(s.kind, s.kind, s.qty, s.x, s.z); pickups[pickups.length - 1].cell = k; } }
+    }
+  }
+  function updatePickups(dt, t) {
+    pkTime += dt; if (fullT > 0) fullT -= dt;
+    for (var i = 0; i < pickups.length; i++) {
+      var p = pickups[i];
+      if (!p.on) { if (!p.bp && !p.once) { p.back -= dt; if (p.back <= 0) { p.on = true; p.g.visible = true; } } continue; }
+      var ddx = px - p.x, ddz = pz - p.z;
+      if (!p.bp && ddx * ddx + ddz * ddz > 2500) { p.g.visible = false; continue; }
+      p.g.visible = true;
+      p.g.rotation.y += dt * (p.bp ? 1.6 : 0.8);
+      p.g.position.y = p.y + (p.bp ? 0.12 * Math.sin(t * 2 + p.ph) : 0);
+      if (ddx * ddx + ddz * ddz < 2.25 && Math.abs((py - EYE) - p.y) < 1.8) {
+        var left = addItem(p.id, p.qty);
+        if (left < p.qty) {
+          p.qty = left;
+          if (left === 0) { p.on = false; p.g.visible = false; p.back = 100; if (p.once) scene.remove(p.g); }
+          tone(660, 990, 0.12, 0.12, 'triangle');
+          say('+ ' + ITEMS[p.id].n);
+          if (!p.bp) { if (has('c1') && Math.random() < 0.5) addItem(p.id, 1); gainXp(1); }
+          if (!shownHint) { shownHint = true; setTimeout(function () { say(K('اضغط I لفتح الحقيبة', 'افتح الحقيبة من أعلى الشاشة')); }, 1300); }
+        } else if (fullT <= 0) { fullT = 2; say('الحقيبة ممتلئة'); }
+      }
+    }
+  }
+
+  // ---------- panels (book, bag, map) and pause ----------
+  function releaseInputs() { keys = {}; attackCancel(); mv.x = mv.y = 0; }
+  function showCard(title, text, btn) {
+    $('card-title').textContent = title; $('card-text').textContent = (started && cur ? cur.name + ' · ' + cur.kingdom + '. ' : '') + text; $('go').textContent = btn;
+    $('to-menu').hidden = !started;
+    wrap.hidden = false; running = false;
+  }
+  function exitLock() { try { if (document.exitPointerLock) document.exitPointerLock(); } catch (e) {} }
+  function pauseNow() {
+    if (!running) return;
+    showCard('متوقف مؤقتًا', PAUSE_TEXT, 'متابعة');
+    releaseInputs(); exitLock(); saveNow();
+  }
+  function openPanel(name) {
+    if (!running || panel) return;
+    panel = name; running = false; releaseInputs();
+    $('sheet-' + name).hidden = false;
+    if (name === 'map') drawMap(); else if (name === 'book') renderBook(); else if (name === 'bag') renderBag(); else if (name === 'skills') renderSkills();
+    exitLock(); checkRotate();
+  }
+  function closePanel() {
+    if (!panel) return;
+    var n = panel; $('sheet-' + n).hidden = true; panel = null;
+    if (n === 'book') { fresh = {}; newDots(); hideBook(); }
+    saveNow();
+    running = true; requestLock(); checkRotate();
+    tutEvent(n);
+  }
+  function togglePanel(name) {
+    if (panel === name) closePanel();
+    else if (running) {
+      if (name === 'book') { if (!bk.opening) { bk.opening = true; bk.t = 0; tone(300, 430, 0.12, 0.07, 'triangle'); } }
+      else openPanel(name);
+    }
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) { b.addEventListener('click', closePanel); });
+  ['book', 'bag', 'map', 'skills'].forEach(function (n) { $('sheet-' + n).addEventListener('pointerdown', function (e) { if (e.target === this) closePanel(); }); });
+  $('btn-map').addEventListener('click', function () { togglePanel('map'); });
+  $('btn-bag').addEventListener('click', function () { togglePanel('bag'); });
+  $('btn-skills').addEventListener('click', function () { togglePanel('skills'); });
+  $('btn-pause').addEventListener('click', pauseNow);
+
+  function requestLock() {
+    if (matchMedia('(pointer: coarse)').matches) return;
+    try {
+      var p = canvas.requestPointerLock();
+      if (p && p.catch) p.catch(function () { lockFailed = true; });
+    } catch (e) { lockFailed = true; }
+  }
+  // full screen and landscape play; both may be refused by the browser, so every call tolerates failure
+  function lockLandscape() {
+    try {
+      if (screen.orientation && screen.orientation.lock) {
+        var p = screen.orientation.lock('landscape');
+        if (p && p.catch) p.catch(function () {});
+      }
+    } catch (e) {}
+  }
+  function enterFullscreen() {
+    var el = document.documentElement;
+    if (document.fullscreenElement || document.webkitFullscreenElement) { lockLandscape(); return; }
+    try {
+      var rq = el.requestFullscreen ? el.requestFullscreen() : (el.webkitRequestFullscreen ? el.webkitRequestFullscreen() : null);
+      if (rq && rq.then) rq.then(lockLandscape, lockLandscape); else lockLandscape();
+    } catch (e) { lockLandscape(); }
+  }
+  function needRotate() { return isTouch && window.innerHeight > window.innerWidth; }
+  function checkRotate() {
+    rotating = running && needRotate();
+    $('rotate').classList.toggle('show', rotating);
+  }
+  document.addEventListener('fullscreenchange', function () {
+    if (document.fullscreenElement && running && !locked) requestLock();
+  });
+  window.addEventListener('orientationchange', function () { setTimeout(checkRotate, 150); });
+  // ---------- title screen, saves, new game ----------
+  var SAVE_KEY = 'ashwaiyat.saves.v1', saves = [], cur = null, menuOpen = true, menuYaw = 0.6, saveT = 15, storeOk = true, delArm = -1;
+  var mMain = $('m-main'), mName = $('m-name'), mKing = $('m-king'), menuEl = $('menu');
+  function loadSaves() {
+    try {
+      var s = JSON.parse(localStorage.getItem(SAVE_KEY) || '[]');
+      saves = Array.isArray(s) ? s.filter(function (o) { return o && typeof o.name === 'string' && typeof o.kingdom === 'string'; }).slice(0, 3) : [];
+    } catch (e) { saves = []; storeOk = false; }
+    saves.sort(function (a, b) { return (b.played || 0) - (a.played || 0); });
+  }
+  function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(saves)); } catch (e) { storeOk = false; } }
+  function saveNow() {
+    if (!cur || !started) return;
+    cur.px = px; cur.pz = pz; cur.yaw = yaw; cur.clockT = clockT; cur.played = Date.now();
+    cur.bag = bag.map(function (s) { return { id: s.id, n: s.n }; });
+    cur.unlocked = Object.keys(unlocked);
+    cur.prog = { xp: prog.xp, lvl: prog.lvl, pts: prog.pts, sk: Object.keys(prog.sk) };
+    cur.vit = { hp: stats.hp, fd: stats.fd, mp: stats.mp };
+    cur.off = offId;
+    var f = []; for (var i = 0; i < FORT_TREES; i++) if (trees[i].dead) f.push(i);
+    cur.felled = f; cur.fk = Object.keys(felledSet); cur.tutDone = !!cur.tutDone || tut.done;
+    persist();
+  }
+  function ago(ts) {
+    var m = Math.floor((Date.now() - ts) / 60000);
+    if (m < 1) return 'الآن'; if (m < 60) return 'قبل ' + m + ' دقيقة';
+    var h = Math.floor(m / 60); if (h < 24) return 'قبل ' + h + ' ساعة';
+    return 'قبل ' + Math.floor(h / 24) + ' يومًا';
+  }
+  function showScreen(n) {
+    mMain.hidden = n !== 'main'; mName.hidden = n !== 'name'; mKing.hidden = n !== 'king';
+    var inp = n === 'name' ? $('in-name') : n === 'king' ? $('in-king') : null;
+    if (inp) { setTimeout(function () { try { inp.focus(); inp.select(); } catch (e) {} }, 30); }
+    menuEl.scrollTop = 0;
+  }
+  function showMenu(n) {
+    menuOpen = true; menuEl.hidden = false; wrap.hidden = true; document.body.classList.add('inmenu');
+    if (n === 'main') renderSaves();
+    showScreen(n);
+  }
+  function renderSaves() {
+    var box = $('save-list'); box.innerHTML = ''; delArm = -1;
+    if (!saves.length) { var e = document.createElement('p'); e.className = 'empty'; e.textContent = 'لا توجد حفظات بعد. ابدأ حفظًا جديدًا.'; box.appendChild(e); }
+    saves.forEach(function (s, i) {
+      var row = document.createElement('div'); row.className = 'save';
+      var op = document.createElement('button'); op.type = 'button'; op.className = 'open';
+      var day = Math.floor((s.clockT || 0) / CYCLE + START - 0.25) + 1;
+      var b = document.createElement('b'); b.textContent = s.name;
+      var sp = document.createElement('span'); sp.textContent = s.kingdom + ' · اليوم ' + day + ' · ' + ago(s.played || Date.now());
+      op.appendChild(b); op.appendChild(sp);
+      op.addEventListener('click', function () { menuGesture(); applySave(s); enterWorld(); });
+      var del = document.createElement('button'); del.type = 'button'; del.className = 'del'; del.textContent = 'حذف';
+      del.addEventListener('click', function () {
+        if (delArm !== i) { delArm = i; del.textContent = 'تأكيد الحذف'; del.classList.add('arm'); return; }
+        saves.splice(i, 1); persist(); renderSaves();
+      });
+      row.appendChild(op); row.appendChild(del); box.appendChild(row);
+    });
+    $('m-warn').hidden = saves.length < 3;
+    $('m-store').hidden = storeOk;
+  }
+  var fsDone = false;
+  function menuGesture() { if (!fsDone) { fsDone = true; enterFullscreen(); } }
+
+  function resetUnlocked() { unlocked = {}; PAGES.forEach(function (p) { if (!p.bp) unlocked[p.id] = true; }); fresh = {}; }
+  function resetWorldState() {
+    cArea = {};
+    treeAct.length = 0; for (var ti2 = 0; ti2 < FORT_TREES; ti2++) restoreTree(trees[ti2]);
+    cells = {}; felledSet = {}; curCX = 1e9;
+    for (var i = pickups.length - 1; i >= 0; i--) {
+      var p = pickups[i];
+      if (p.once || p.cell) { scene.remove(p.g); pickups.splice(i, 1); } else { p.on = true; p.g.visible = true; p.qty = p.q0; }
+    }
+    bag.length = 0; selSlot = -1; hbSel = -1; offId = null; resetUnlocked(); newDots(); resetSurvival();
+  }
+  function applySave(s) {
+    cur = s; started = false; resetWorldState();
+    px = s.px || 0; pz = s.pz || 0; yaw = s.yaw || 0; pitch = 0; vy = 0; py = heightAt(px, pz) + EYE; clockT = s.clockT || 0;
+    (s.bag || []).forEach(function (it) { if (ITEMS[it.id]) addItem(it.id, it.n); });
+    (s.unlocked || []).forEach(function (id) { if (PAGE_BY_ID[id]) unlocked[id] = true; });
+    if (s.prog) { prog.xp = s.prog.xp || 0; prog.lvl = s.prog.lvl || 1; prog.pts = s.prog.pts || 0; (s.prog.sk || []).forEach(function (id) { prog.sk[id] = true; }); applySkills(); skBtn(); }
+    offId = s.off && ITEMS[s.off] ? s.off : null;
+    if (s.vit) { setBar('hp', Math.max(30, s.vit.hp || 100)); setBar('fd', Math.max(15, s.vit.fd == null ? 100 : s.vit.fd)); setBar('mp', s.vit.mp == null ? 100 : s.vit.mp); }
+    (s.felled || []).forEach(function (i) { if (i < FORT_TREES && trees[i]) killTreeNow(trees[i]); });
+    (s.fk || []).forEach(function (k) { felledSet[k] = true; });
+    forceTerrain(px, pz); streamAssemble(true, px, pz);
+    pickups.forEach(function (p) { if (p.bp && (unlocked[PAGE_BY_BP[p.id].id] || countOf(p.id) > 0)) { p.on = false; p.g.visible = false; } });
+    peakY = py; camera.position.set(px, py, pz);
+  }
+  function newSave(name, kingdom) {
+    var s = { id: Date.now(), name: name, kingdom: kingdom, created: Date.now(), played: Date.now(), clockT: 0, px: 0, pz: 0, yaw: 0, bag: [], unlocked: [], felled: [], tutDone: false };
+    saves.unshift(s); saves = saves.slice(0, 3); persist(); return s;
+  }
+  function enterWorld() {
+    menuOpen = false; menuEl.hidden = true; document.body.classList.remove('inmenu'); wrap.hidden = true;
+    started = true;
+    if (cur.tutDone) { tut.done = true; tut.i = -1; gateBeam.visible = false; $('tut').hidden = true; } else startTutorial();
+    running = true; releaseInputs(); enterFullscreen(); requestLock(); checkRotate(); beep(520, 0.08);
+    say('أهلًا يا ' + cur.name); saveT = 15; saveNow();
+  }
+  function cleanName(v, max) { return v.replace(/\s+/g, ' ').trim().slice(0, max); }
+  $('m-new').addEventListener('click', function () { menuGesture(); $('m-warn2').hidden = saves.length < 3; showScreen('name'); });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-fill]'), function (b) {
+    b.addEventListener('click', function () { var i = $(b.getAttribute('data-fill')); i.value = b.getAttribute('data-v'); i.focus(); updNext(); });
+  });
+  function updNext() { $('m-next1').disabled = !cleanName($('in-name').value, 16); $('m-next2').disabled = !cleanName($('in-king').value, 24); }
+  $('in-name').addEventListener('input', updNext); $('in-king').addEventListener('input', updNext);
+  $('m-next1').addEventListener('click', function () { if (!cleanName($('in-name').value, 16)) return; showScreen('king'); });
+  $('m-next2').addEventListener('click', function () {
+    var n = cleanName($('in-name').value, 16), k = cleanName($('in-king').value, 24); if (!n || !k) return;
+    var s = newSave(n, k); applySave(s); menuOpen = false; menuEl.hidden = true; document.body.classList.remove('inmenu');
+    showCard('مرحبًا يا ' + n, k + ' تنتظرك. ابدأ بالشرح داخل الحصن القديم ثم اخرج من البوابة الشمالية لتستكشف العالم.', 'ابدأ اللعب');
+    $('to-menu').hidden = true;
+  });
+  $('in-name').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('m-next1').click(); });
+  $('in-king').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('m-next2').click(); });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-back]'), function (b) { b.addEventListener('click', function () { showScreen(b.getAttribute('data-back')); if (b.getAttribute('data-back') === 'main') renderSaves(); }); });
+  $('to-menu').addEventListener('click', function () {
+    saveNow(); started = false; running = false; releaseInputs(); exitLock(); checkRotate(); loadSaves(); showMenu('main');
+  });
+  window.addEventListener('pagehide', saveNow);
+  document.addEventListener('visibilitychange', function () { if (document.hidden) saveNow(); });
+  loadSaves(); updNext(); forceTerrain(0, 0); streamAssemble(true, 0, 0); showMenu('main');
+
+  $('go').addEventListener('click', function () {
+    if (!started && cur) { enterWorld(); return; }
+    wrap.hidden = true; running = true; releaseInputs();
+    enterFullscreen(); requestLock(); checkRotate(); beep(520, 0.08);
+  });
+  document.addEventListener('pointerlockchange', function () {
+    locked = document.pointerLockElement === canvas;
+    if (!locked && running) { showCard('متوقف مؤقتًا', PAUSE_TEXT, 'متابعة'); releaseInputs(); }
+  });
+  document.addEventListener('pointerlockerror', function () { lockFailed = true; });
+
+  // keyboard
+  window.addEventListener('keydown', function (e) {
+    if (menuOpen || (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName))) return;
+    keys[e.code] = true;
+    if (e.code === 'Space') e.preventDefault();
+    if (e.repeat) return;
+    var c = e.code;
+    if (c === 'Escape') {
+      if (panel) closePanel(); else if (running && !locked) pauseNow();
+      return;
+    }
+    if (!running && !panel) return;
+    if (c === 'KeyB') togglePanel('book');
+    else if (c === 'KeyM') togglePanel('map');
+    else if (c === 'KeyI') togglePanel('bag');
+    else if (c === 'KeyK') togglePanel('skills');
+    else if (c === 'KeyE' && running) eatHeld();
+    else if (c === 'KeyP') pauseNow();
+    else if (running && /^Digit[1-6]$/.test(c)) hbSelect(+c.charAt(5) - 1, e.shiftKey ? 2 : 1);
+    else if (panel) return;
+    else if (c === 'ShiftLeft' || c === 'ShiftRight') doDash();
+    else if (c === 'KeyF') attackDown('key');
+    else if (c === 'KeyT') skipTutorial();
+  });
+  window.addEventListener('keyup', function (e) {
+    if (menuOpen) return;
+    keys[e.code] = false;
+    if (e.code === 'KeyF') attackUp('key');
+  });
+  window.addEventListener('blur', releaseInputs);
+
+  // mouse: look with pointer lock (left button attacks), or drag to look when lock is unavailable
+  var dragging = false;
+  canvas.addEventListener('pointerdown', function (e) {
+    if (e.pointerType !== 'mouse') return;
+    if (locked) { if (e.button === 0) attackDown('mouse'); }
+    else { dragging = true; if (running) requestLock(); }
+  });
+  window.addEventListener('pointerup', function (e) {
+    dragging = false;
+    if (e.pointerType === 'mouse' && e.button === 0) attackUp('mouse');
+  });
+  window.addEventListener('pointermove', function (e) {
+    if (!running || e.pointerType !== 'mouse') return;
+    if (locked || dragging) look(e.movementX || 0, e.movementY || 0, 0.0024);
+  });
+  function look(dx, dy, k) {
+    yaw -= dx * k; pitch -= dy * k;
+    pitch = clamp(pitch, -1.5, 1.5);
+    if (tutNow('look')) tut.acc += Math.abs(dx * k);
+  }
+
+  // touch controls
+  var stick = $('stick'), knob = $('knob'), sid = null, sx = 0, sy = 0, lid = null, lx = 0, ly = 0;
+  $('stick-zone').addEventListener('pointerdown', function (e) {
+    if (sid !== null) return; sid = e.pointerId; sx = e.clientX; sy = e.clientY;
+    stick.style.display = 'block'; stick.style.left = (sx - 55) + 'px'; stick.style.top = (sy - 55) + 'px';
+    knob.style.left = '35px'; knob.style.top = '35px';
+    e.target.setPointerCapture(e.pointerId);
+  });
+  $('stick-zone').addEventListener('pointermove', function (e) {
+    if (e.pointerId !== sid) return;
+    var dx = e.clientX - sx, dy = e.clientY - sy, d = Math.hypot(dx, dy), m = 50;
+    if (d > m) { dx = dx / d * m; dy = dy / d * m; }
+    knob.style.left = (35 + dx) + 'px'; knob.style.top = (35 + dy) + 'px';
+    mv.x = dx / m; mv.y = -dy / m;
+  });
+  function endStick(e) { if (e.pointerId !== sid) return; sid = null; mv.x = mv.y = 0; stick.style.display = 'none'; }
+  $('stick-zone').addEventListener('pointerup', endStick);
+  $('stick-zone').addEventListener('pointercancel', endStick);
+  $('look-zone').addEventListener('pointerdown', function (e) { if (lid !== null) return; lid = e.pointerId; lx = e.clientX; ly = e.clientY; e.target.setPointerCapture(e.pointerId); });
+  $('look-zone').addEventListener('pointermove', function (e) {
+    if (e.pointerId !== lid || !running) return;
+    look(e.clientX - lx, e.clientY - ly, 0.005); lx = e.clientX; ly = e.clientY;
+  });
+  function endLook(e) { if (e.pointerId === lid) lid = null; }
+  $('look-zone').addEventListener('pointerup', endLook);
+  $('look-zone').addEventListener('pointercancel', endLook);
+
+  var bAtk = $('b-attack');
+  bAtk.addEventListener('pointerdown', function (e) { e.preventDefault(); try { bAtk.setPointerCapture(e.pointerId); } catch (er) {} bAtk.classList.add('down'); attackDown('touch'); });
+  function atkRelease() { bAtk.classList.remove('down'); attackUp('touch'); }
+  bAtk.addEventListener('pointerup', atkRelease);
+  bAtk.addEventListener('pointercancel', atkRelease);
+  $('b-jump').addEventListener('pointerdown', function (e) { e.preventDefault(); keys.Space = true; setTimeout(function () { keys.Space = false; }, 120); });
+  dashBtn.addEventListener('pointerdown', function (e) { e.preventDefault(); doDash(); });
+  $('b-book').addEventListener('pointerdown', function (e) { e.preventDefault(); togglePanel('book'); });
+  diveBtn.addEventListener('pointerdown', function (e) { e.preventDefault(); try { diveBtn.setPointerCapture(e.pointerId); } catch (er) {} diveTouch = true; diveBtn.classList.add('down'); });
+  function diveUp() { diveTouch = false; diveBtn.classList.remove('down'); }
+  diveBtn.addEventListener('pointerup', diveUp); diveBtn.addEventListener('pointercancel', diveUp);
+
+  function resize() {
+    var w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    checkRotate();
+  }
+  window.addEventListener('resize', resize); resize();
+
+  var swimming = false, swimK = 0, swimPh = 0, endT = 0, air = 100, diveTouch = false, underK = 0, diveHint = false, UWC = new THREE.Color();
+  function update(dt) {
+    var fx = 0, fz = 0;
+    if (keys.KeyW || keys.ArrowUp) fz += 1;
+    if (keys.KeyS || keys.ArrowDown) fz -= 1;
+    if (keys.KeyD) fx += 1;
+    if (keys.KeyA) fx -= 1;
+    fx += mv.x; fz += mv.y;
+    var turn = 0;
+    if (keys.ArrowLeft) turn += 1.9 * dt;
+    if (keys.ArrowRight) turn -= 1.9 * dt;
+    if (turn) { yaw += turn; if (tutNow('look')) tut.acc += Math.abs(turn); }
+    var len = Math.hypot(fx, fz); if (len > 1) { fx /= len; fz /= len; }
+    var sy2 = Math.sin(yaw), cy = Math.cos(yaw);
+    var wx = -sy2 * fz + cy * fx, wz = -cy * fz - sy2 * fx;
+    lastIn.x = wx; lastIn.z = wz;
+    var spd = has('m1') ? 6.8 : 6.2;
+    var wdx = wx * spd * dt, wdz = wz * spd * dt, dx = wdx, dz = wdz;
+
+    // dash adds a short burst on top of walking
+    if (dash.cd > 0) dash.cd = Math.max(0, dash.cd - dt);
+    if (dash.t > 0) {
+      var kd = 0.4 + 0.6 * (dash.t / DASH_T);
+      dx += dash.vx * dt * kd; dz += dash.vz * dt * kd;
+      dash.t = Math.max(0, dash.t - dt);
+    }
+    var depth = SEA_Y - heightAt(px, pz), nearSea = edgeDist(px, pz) < 76, wasSwim = swimming;
+    swimming = nearSea && py < SEA_Y + 2.2 && (swimming ? depth > 0.7 : depth > 1.15);
+    if (swimming && !wasSwim) { tone(220, 80, 0.3, 0.12, 'sine'); if (!diveHint) { diveHint = true; say(K('اضغط C للغوص', 'اضغط زر «غوص» للنزول')); } }
+    swimK += ((swimming ? 1 : 0) - swimK) * Math.min(1, dt * 6);
+    if (swimming) { var sm = has('m2') ? 0.85 : 0.55; dx *= sm; dz *= sm; }
+    var cool = dash.cd > 0;
+    if (cool !== dashCool) { dashCool = cool; dashBtn.classList.toggle('cool', cool); }
+
+    var lim = PLAY + END_PAD;
+    px = clamp(px + dx, -lim, lim);
+    pz = clamp(pz + dz, -lim, lim);
+
+    // tutorial: turning and walking
+    if (tutNow('look') && tut.acc >= tut.steps[tut.i].need) tutNext();
+    else if (tutNow('move')) { tut.acc += Math.hypot(wdx, wdz); if (tut.acc >= tut.steps[tut.i].need) tutNext(); }
+
+    // gate doors swing open as you approach and close once you are far away
+    var gd = Math.hypot(px, pz + BOUND + WALL_T / 2);
+    if (gd < 11) doorTarget = 1; else if (gd > 14) doorTarget = 0;
+    var dstep = 1.3 * dt;
+    doorOpen += Math.max(-dstep, Math.min(dstep, doorTarget - doorOpen));
+    for (var li = 0; li < leaves.length; li++) leaves[li].rotation.y = leaves[li].userData.side * (Math.PI / 2) * 0.96 * doorOpen;
+
+    // walls, closed gate, then trees, rocks, fallen blocks, towers, pillars, the dummy and lava
+    for (var si = 0; si < solids.length; si++) pushBox(solids[si]);
+    if (doorOpen < 0.7) pushBox(gateBlock);
+    var feet = py - EYE;
+    for (var ci2 = 0; ci2 < colliders.length; ci2++) {
+      var c = colliders[ci2];
+      if (feet - c.y > c.h) continue;
+      var ox = px - c.x, oz = pz - c.z, od = Math.hypot(ox, oz), min = c.r + RADIUS;
+      if (od < min) {
+        if (od < 0.0001) { ox = 1; oz = 0; od = 1; }
+        px = c.x + ox / od * min; pz = c.z + oz / od * min;
+      }
+    }
+    px = clamp(px, -lim, lim); pz = clamp(pz, -lim, lim);
+    endT -= dt;
+    if (endT <= 0 && Math.max(Math.abs(px), Math.abs(pz)) > lim - 1.2) { endT = 4; say('نهاية العالم'); }
+
+    // jump and follow the terrain
+    var gy = heightAt(px, pz) + EYE;
+    var wasAir = !onGround;
+    if (swimming) {
+      var diveWant = (keys.KeyC || diveTouch) && !keys.Space, floorY = heightAt(px, pz) + 0.55;
+      var tgt = diveWant ? Math.max(floorY, SEA_Y - 9) : SEA_Y + 0.5 + Math.sin(performance.now() * 0.0021) * 0.05;
+      var stepY = diveWant ? 3.2 * dt : 4.5 * dt;
+      py += Math.max(-stepY, Math.min(stepY, tgt - py)); if (py < floorY) py = floorY;
+      vy = 0; onGround = false;
+    } else {
+      if (keys.Space && onGround) { vy = 8.2; onGround = false; tutEvent('jump'); }
+      vy -= 22 * dt; py += vy * dt;
+      if (py <= gy) { py = (swimK > 0.05 && gy - py < 1.2) ? py + (gy - py) * Math.min(1, dt * 10) : gy; vy = 0; onGround = true; }
+      else if (onGround && vy <= 0 && py - gy < 0.35) { py = gy; vy = 0; }
+      else onGround = false;
+    }
+    if (swimming || onGround && !wasAir) peakY = py;
+    else if (!onGround) peakY = Math.max(peakY, py);
+    if (onGround && wasAir && !swimming) { landed(peakY - py); peakY = py; }
+    survive(dt);
+    if (dead) return;
+
+    if (tutNow('exit') && pz < -(BOUND + WALL_T + 1)) tutNext();
+    updatePickups(dt, performance.now() / 1000); updateTrees(dt); streamAssemble(false, px, pz);
+    saveT -= dt; if (saveT <= 0) { saveT = 15; saveNow(); }
+
+    // attack timing
+    if (atk.cd > 0) atk.cd -= dt;
+    if (atk.held) {
+      atk.t = Math.min(atk.t + dt, 2);
+      if (!atk.full && atk.t >= chargeT()) { atk.full = true; tone(880, 1100, 0.12, 0.12, 'sine'); }
+    }
+    if (atk.active) {
+      atk.swingT += dt;
+      if (!atk.hitDone && atk.swingT / atk.dur >= (atk.kind === 2 ? 0.3 : 0.4)) { atk.hitDone = true; performHit(atk.kind); }
+      if (atk.swingT >= atk.dur) atk.active = false;
+    }
+    var show = atk.held && atk.t > 0.18;
+    if (show !== chargeShown) { chargeShown = show; chargeEl.hidden = !show; }
+    if (show) { chargeEl.style.setProperty('--p', Math.min(1, atk.t / chargeT()).toFixed(3)); chargeEl.classList.toggle('full', atk.t >= chargeT()); }
+    eatCd -= dt;
+    updateFx(dt); updateDummy(dt);
+
+    var moving = Math.hypot(wdx, wdz) / dt;
+    if (onGround && moving > 0.5) bob += dt * 9;
+    var bobOff = onGround ? Math.sin(bob) * 0.04 * Math.min(1, moving / 6) : 0;
+    camera.position.set(px + (Math.random() - 0.5) * shake, py + bobOff + (Math.random() - 0.5) * shake, pz + (Math.random() - 0.5) * shake);
+    swimPh += dt * (swimming ? (moving > 0.5 ? 5.5 : 2.2) : 0);
+    camera.rotation.set(pitch + kick, yaw, swimK * Math.sin(swimPh) * (moving > 0.5 ? 0.035 : 0.012));
+    ripple.visible = swimK > 0.1;
+    if (ripple.visible) { var rf = (performance.now() * 0.0007) % 1; ripple.position.set(px, SEA_Y + 0.04, pz); ripple.scale.setScalar(0.6 + rf * 2.6); rippleMat.opacity = 0.5 * (1 - rf) * swimK; }
+    shake = Math.max(0, shake - dt * 0.6); kick = Math.max(0, kick - dt * 0.4);
+    fovCur += ((75 + (dash.t > 0 ? 12 : 0)) - fovCur) * Math.min(1, dt * 14);
+    if (Math.abs(camera.fov - fovCur) > 0.05) { camera.fov = fovCur; camera.updateProjectionMatrix(); }
+
+    hbRefresh(); torchUpdate(dt, performance.now() / 1000);
+    if (heldG[1]) heldG[1].visible = bk.p <= 0;
+    if (bk.opening) { bk.t += dt; bk.p = Math.min(1, bk.t / 0.4); bk.o = Math.max(0, Math.min(1, (bk.t - 0.4) / 0.6)); if (bk.t >= 1.5) { bk.opening = false; openPanel('book'); } }
+    setBook();
+    // hands: sway while walking, pull back while charging, punch on release
+    var walking = onGround && moving > 0.5;
+    handPhase += dt * (walking ? 9 : 1.6);
+    var amp = walking ? Math.min(1, moving / 6) : 0;
+    var cTarget = atk.held ? clamp((atk.t - 0.12) / (chargeT() - 0.12), 0, 1) : 0;
+    atk.charge = cTarget;
+    pose.c += (cTarget - pose.c) * Math.min(1, dt * 16);
+    var swingP = atk.active ? Math.min(1, atk.swingT / atk.dur) : 0;
+    var out = atk.active ? Math.pow(Math.sin(swingP * Math.PI), 0.7) : 0;
+    eatAnim = Math.max(0, eatAnim - dt * 2.2);
+    hands.forEach(function (hd, i) {
+      var u = hd.userData, ph = handPhase + (i === 0 ? 0 : Math.PI), side = u.side;
+      var use = atk.active && (atk.kind === 2 || atk.hand === i);
+      var ox = -side * 0.05 * pose.c, oy = -0.03 * pose.c, oz = 0.14 * pose.c, rx = 0.3 * pose.c;
+      if (i === 0) { var be = bk.p * bk.p * (3 - 2 * bk.p); ox += 0.2 * be; oy += 0.16 * be; }
+      if (pose.c > 0.98) { ox += (Math.random() - 0.5) * 0.006; oy += (Math.random() - 0.5) * 0.006; }
+      if (use) { var reach = atk.kind === 2 ? 0.66 : 0.5; oz -= reach * out; ox -= side * 0.1 * out; oy += 0.04 * out; rx -= 0.25 * out; }
+      if (dash.t > 0) oz += 0.07;
+      var hi = i === 1 ? 0 : 1, hg = heldG[hi], ea = Math.sin(Math.min(1, eatAnim) * Math.PI);
+      if (hg && heldId[hi] === eatFoodId && eatAnim > 0) { ox -= side * 0.14 * ea; oy += 0.13 * ea; oz += 0.12 * ea; rx += 0.5 * ea; }
+      if (hg) {
+        var tid = heldId[hi];
+        var wb = WEAPONS[tid] ? WEAPONS[tid].base : tid, sp2 = wb === 'spear';
+        hg.rotation.x = use && !sp2 ? -1.25 * out : 0;
+        hg.rotation.y = use && atk.kind === 2 && wb === 'axe' ? -1.6 * out + 0.8 : 0;
+        hg.position.z = -0.17 - (use && sp2 ? (atk.kind === 2 ? 0.55 : 0.3) * out : 0);
+      }
+      var sp = swimPh + (i === 0 ? 0 : Math.PI), sk = swimK * (1 - pose.c);
+      hd.position.set(
+        u.bx + ox + Math.cos(ph * 0.5) * 0.012 * amp + sk * (-side * (0.05 + 0.05 * Math.sin(sp))),
+        u.by + oy + Math.sin(ph) * 0.018 * amp + Math.sin(handPhase) * 0.003 * (1 - amp) - (onGround ? 0 : Math.max(-0.04, Math.min(0.04, vy * 0.004))) * (1 - swimK) + sk * (0.03 + 0.14 * Math.cos(sp)),
+        u.bz + oz + Math.cos(ph) * 0.025 * amp + sk * (-0.3 * Math.sin(sp))
+      );
+      hd.rotation.set(0.05 + rx + sk * (0.55 * Math.cos(sp) - 0.2), -side * 0.12 + sk * side * 0.25 * Math.sin(sp), sk * side * 0.2 * Math.cos(sp));
+    });
+    var glow = pose.c * 0.55;
+    if (atk.charge >= 1) glow *= 0.85 + 0.25 * Math.sin(performance.now() * 0.022);
+    if (atk.active && atk.kind === 2) glow = Math.max(glow, 0.5 * (1 - swingP));
+    skinMat.emissive.setRGB(glow, glow * 0.5, glow * 0.1);
+
+    clockT += dt;
+    var ph2 = clockT / CYCLE + START, hrs = (ph2 % 1) * 24;
+    elDay.textContent = Math.floor(ph2 - 0.25) + 1;
+    elClock.textContent = pad2(Math.floor(hrs)) + ':' + pad2(Math.floor((hrs % 1) * 60));
+    if (curSeason !== shownSeason) { shownSeason = curSeason; elSeason.textContent = SEASON_NAMES[curSeason]; }
+    elCoords.textContent = 'X ' + Math.round(px) + ' · Z ' + Math.round(pz);
+  }
+
+  var last = performance.now();
+  function frame(now) {
+    var dt = Math.min(0.05, (now - last) / 1000); last = now;
+    var t = now / 1000;
+    if (running && !rotating) update(dt);
+    else if (menuOpen) { menuYaw += dt * 0.07; camera.position.set(0, EYE + 0.3, 0); camera.rotation.set(0.03, menuYaw, 0); }
+    clouds.forEach(function (c) {
+      var u = c.userData; u.ox += dt * u.sp; if (u.ox > 240) u.ox = -240;
+      c.position.set(camera.position.x + u.ox, u.oy, camera.position.z + u.oz);
+    });
+    sky.position.copy(camera.position);
+    stars.position.copy(camera.position);
+    updateTime();
+    sunDisc.position.copy(camera.position).addScaledVector(sunDir, 260);
+    moonDisc.position.copy(camera.position).addScaledVector(sunDir, -260);
+    updateAtmosphere();
+    if (underK > 0.02) {
+      scene.fog.color.lerp(UWC.setHex(0x1a6e96).multiplyScalar(0.2 + 0.8 * tod.day), underK); scene.background.copy(scene.fog.color);
+      scene.fog.near += (0.5 - scene.fog.near) * underK; scene.fog.far += (38 - scene.fog.far) * underK;
+      sky.material.uniforms.bottom.value.copy(scene.fog.color);
+    }
+    if (torchK > 0.02) { var tdk = 1 + 0.8 * (1 - tod.day); scene.fog.near += 8 * torchK * tdk; scene.fog.far += 20 * torchK * tdk; }
+    animateWorld(dt, t);
+    if (terrShow) updateTerrain(menuOpen ? 0 : px, menuOpen ? 0 : pz);
+    if (gateBeam.visible) gateBeam.material.opacity = 0.2 + 0.08 * Math.sin(t * 3);
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+  resetGame();
+  setBar('hp', 100); setBar('mp', 100); setBar('fd', 100);
+  camera.position.set(px, py, pz);
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>
